@@ -1,0 +1,60 @@
+[package]
+name = "lion-compositor"
+description = "The LionOS example compositor: the Phase 10 vertical slice over the LDP stack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "lion_compositor"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lion-compositor"
+path = "src/main.rs"
+
+# Phase 45: the session-rebuild supervisor — the DWM doctrine (the
+# crash → rebuild choreography) as a sibling binary in the same
+# package: one release unit, one Debian package, and the integration
+# test can resolve both binaries through the package's own
+# CARGO_BIN_EXE_* set.
+[[bin]]
+name = "lion-supervisor"
+path = "src/bin/lion-supervisor.rs"
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the compositor
+# binary is the assembly point of the whole LDP stack, so it depends on
+# every layer crate. `libc` is the canonical Linux ABI binding and the
+# only addition — the audited `sys` module wraps mmap/memfd/eventfd with
+# SAFETY comments per call (the ldp-transport precedent).
+ldp-core = { path = "../../crates/ldp-core" }
+ldp-protocol = { path = "../../crates/ldp-protocol" }
+ldp-server = { path = "../../crates/ldp-server" }
+ldp-compositor = { path = "../../crates/ldp-compositor" }
+ldp-renderer = { path = "../../crates/ldp-renderer" }
+ldp-display = { path = "../../crates/ldp-display" }
+ldp-planes = { path = "../../crates/ldp-planes" }
+ldp-shell = { path = "../../crates/ldp-shell" }
+ldp-hdr = { path = "../../crates/ldp-hdr" }
+ldp-power = { path = "../../crates/ldp-power" }
+ldp-gpu = { path = "../../crates/ldp-gpu" }
+ldp-clipboard = { path = "../../crates/ldp-clipboard" }
+ldp-input = { path = "../../crates/ldp-input" }
+ldp-seat = { path = "../../crates/ldp-seat" }
+ldp-transport = { path = "../../crates/ldp-transport" }
+ldp-vrr = { path = "../../crates/ldp-vrr" }
+libc = "0.2"
+
+[dev-dependencies]
+# The integration suites drive the slice with the real client library
+# over a real transport — the end-to-end Phase 10 exit criterion.
+ldp-client = { path = "../../crates/ldp-client" }
+
+[lints]
+workspace = true

@@ -1,0 +1,849 @@
+# LDP core module — the foundation every client speaks.
+#
+# Interfaces: connection (bootstrap), registry, output, compositor,
+# surface, subsurface, buffer, shm, shm_pool, dmabuf, fence.
+#
+# Wire encodings: docs/protocol.md. Grammar: docs/spec-format.md.
+
+[module]
+name = "ldp.core"
+version_min = 1
+version_max = 1
+doc = """
+Core protocol objects: connection bootstrap, object registry, outputs,
+surfaces and buffers. Everything else (shell, input, data, color, security,
+a11y, session) is an independently versioned module layered on top.
+"""
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "error_code"
+doc = "Global protocol error taxonomy. All errors are fatal to the connection."
+[enum.values]
+invalid_object = 1
+stale_object = 2
+invalid_interface = 3
+invalid_opcode = 4
+signature_mismatch = 5
+malformed_message = 6
+fd_mismatch = 7
+invalid_string = 8
+limit_exceeded = 9
+unauthorized = 10
+invalid_state = 11
+out_of_range = 12
+unsupported_version = 13
+invalid_buffer = 14
+server_error = 15
+
+[[enum]]
+name = "sandbox_flavor"
+doc = "How the connecting client is confined, as determined before any protocol data is read."
+[enum.values]
+unconfined = 1
+classic = 2
+portal = 3
+sandboxed = 4
+
+[[enum]]
+name = "revoked_reason"
+doc = "Why the server tore down an object the client did not destroy itself."
+[enum.values]
+interface_removed = 1
+capability_revoked = 2
+session_policy = 3
+internal_error = 4
+
+[[enum]]
+name = "transform"
+doc = "Buffer-to-surface orientation, 90-degree steps plus mirroring."
+[enum.values]
+normal = 1
+rot90 = 2
+rot180 = 3
+rot270 = 4
+flipped = 5
+flipped90 = 6
+flipped180 = 7
+flipped270 = 8
+
+[[enum]]
+name = "presentation_mode"
+doc = "How commits of this surface are scheduled against the output timeline."
+[enum.values]
+vsync = 1       # deadline-driven, never torn (default)
+adaptive = 2    # VRR window: commit at ready within [min,max] refresh
+immediate = 3   # tearing allowed, lowest latency (games); requires output support
+
+[[enum]]
+name = "frame_drop_reason"
+doc = "Why a requested frame did not reach the display."
+[enum.values]
+deadline_missed = 1
+surface_hidden = 2
+output_off = 3
+throttled = 4
+superseded = 5
+
+[[enum]]
+name = "output_subpixel"
+doc = "Physical subpixel layout of an output (affects text rendering hinting)."
+[enum.values]
+unknown = 1
+none = 2
+horizontal_rgb = 3
+horizontal_bgr = 4
+vertical_rgb = 5
+vertical_bgr = 6
+
+[[enum]]
+name = "color_primaries"
+doc = "Chromaticity primaries of a color description or an output pipeline."
+[enum.values]
+bt709 = 1   # sRGB / HDTV primaries
+dcip3 = 2   # Display P3 (digital cinema subset)
+bt2020 = 3  # Ultra-wide gamut (HDR video)
+
+[[enum]]
+name = "transfer_function"
+doc = "Opto-electronic transfer characteristic of a color description."
+[enum.values]
+linear = 1
+srgb = 2
+pq = 3       # SMPTE ST 2084 (HDR)
+hlg = 4      # hybrid log-gamma (HDR broadcast)
+gamma22 = 5  # legacy CRT curve
+gamma28 = 6
+
+[[enum]]
+name = "color_range"
+doc = "Studio (limited) vs full-range encoding of YCbCr-derived formats."
+[enum.values]
+full = 1
+studio = 2
+
+[[enum]]
+name = "subsurface_mode"
+doc = "Synchronization mode of a subsurface relative to its parent."
+[enum.values]
+sync = 1     # applies state only when the parent commits (default)
+desync = 2   # applies state on its own commits
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "connection_options"
+doc = "Client options requested in `hello`; the server may silently drop any bit."
+[bitset.bits]
+introspection = 0    # registry.introspect enabled for this connection
+large_messages = 1   # raise message ceiling to 64 MiB (bulk transfers)
+escalate_prompts = 2 # allow runtime escalation prompts on this connection
+
+[[bitset]]
+name = "server_caps"
+doc = "Global server feature advertisement delivered in `welcome`."
+[bitset.bits]
+color_mgmt = 0
+hdr = 1
+vrr = 2
+multi_gpu = 3
+a11y = 4
+security_broker = 5
+audit = 6
+
+[[bitset]]
+name = "mode_flags"
+doc = "Attributes of one output mode."
+[bitset.bits]
+preferred = 0
+current = 1
+interlaced = 2
+
+[[bitset]]
+name = "presented_flags"
+doc = "How a frame was actually presented on the output."
+[bitset.bits]
+vblank = 0   # presented at a vblank boundary
+scanout = 1  # direct scanout (no composition pass)
+overlay = 2  # on a hardware overlay plane
+torn = 3     # presented with tearing (immediate mode)
+
+[[bitset]]
+name = "output_caps"
+doc = "Capabilities of one output, emitted right after binding."
+[bitset.bits]
+vrr = 0
+hdr = 1
+atomic = 2
+overlay_planes = 3
+cursor = 4
+
+[[bitset]]
+name = "output_hdr_caps"
+doc = "HDR support details of one output."
+[bitset.bits]
+static_metadata = 0
+pq = 1
+hlg = 2
+wide_gamut = 3
+tone_mapping = 4
+sdr_level_adjust = 5
+
+[[bitset]]
+name = "vrr_caps"
+doc = "Adaptive-sync behavior of one output."
+[bitset.bits]
+seamless = 0     # VRR can be toggled without a modeset
+fixed_rate = 1   # fixed-rate fallback available below min refresh
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "connection"
+builtin_id = 1
+doc = """
+Bootstrap object, pre-bound at object ID 1 on every connection. Owns the
+handshake, synchronization, central object lifecycle, keepalive, and fatal
+error reporting. The first client message on any connection must be
+`hello`; any other first message is an `invalid_state` error.
+"""
+
+[[interface.request]]
+name = "hello"
+doc = "Begin the handshake. Must be the first message on the connection."
+reply = "welcome"
+args = [
+  { name = "protocol_release", type = "uint32", doc = "Client LDP release number for diagnostics." },
+  { name = "options", type = "bitset", of = "connection_options" },
+]
+
+[[interface.request]]
+name = "sync"
+doc = "Request a sync_done after all previously queued events have been delivered. Round-trip barrier."
+reply = "sync_done"
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.request]]
+name = "destroy"
+doc = """
+Destroy any object on this connection. The central lifecycle path: the server
+validates the ID is bound, its generation is current, and the object permits
+destruction in its current state; then replies `destroyed` with the same
+cookie and releases all associated resources. References to the ID after
+destruction are `stale_object` (or `invalid_object` if the slot was never
+reused). Double-destroy is `invalid_state`.
+"""
+reply = "destroyed"
+args = [
+  { name = "object_id", type = "uint32", doc = "Raw object ID; validated generically, then per-interface." },
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.request]]
+name = "ping"
+doc = "Keepalive; server replies `pong` with the same cookie. Never advances protocol state."
+reply = "pong"
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.request]]
+name = "get_registry"
+doc = """
+Materialize the per-connection registry object at a client-chosen `new_id`, pinned at
+`version` (which must lie inside the registry interface's advertised range). The
+registry is the only object created outside `registry.bind` — it bootstraps the
+binding mechanism itself. After it exists, the server replays one `registry.global`
+event per advertised global on it. No reply event: the object's existence and the
+global replay are the effect. Multiple registries per connection are legal.
+"""
+args = [
+  { name = "version", type = "uint32", doc = "Registry interface version to pin." },
+  { name = "new_id", type = "new_id", of = "registry", doc = "Client-chosen ID for the registry object." },
+]
+
+[[interface.event]]
+name = "welcome"
+doc = "Handshake reply. Emitted exactly once, before any registry event."
+args = [
+  { name = "protocol_release", type = "uint32" },
+  { name = "caps", type = "bitset", of = "server_caps" },
+  { name = "client_id", type = "uint32", doc = "Identity used in audit records for this connection." },
+  { name = "app_id", type = "string", doc = "Verified application identity, empty string if unknown." },
+  { name = "sandbox", type = "enum", of = "sandbox_flavor" },
+]
+
+[[interface.event]]
+name = "sync_done"
+doc = "All events queued before the matching `sync` have been delivered."
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.event]]
+name = "destroyed"
+doc = "Confirmation of `connection.destroy`; the ID is free for reuse afterwards."
+args = [
+  { name = "object_id", type = "uint32" },
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.event]]
+name = "revoked"
+doc = "Server-initiated teardown of an object the client did not destroy."
+args = [
+  { name = "object_id", type = "uint32" },
+  { name = "reason", type = "enum", of = "revoked_reason" },
+]
+
+[[interface.event]]
+name = "error"
+doc = "Fatal protocol error. Delivered last; the socket is closed afterwards."
+args = [
+  { name = "code", type = "enum", of = "error_code" },
+  { name = "object_id", type = "uint32", doc = "Offending object ID, 0 if none." },
+  { name = "message", type = "string", doc = "Human-readable diagnostic (not for display to end users)." },
+]
+
+[[interface.event]]
+name = "pong"
+doc = "Reply to `ping`."
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface]]
+name = "registry"
+global = true
+doc = """
+Catalog of all interfaces the server supports. One registry object per connection
+is materialized with `connection.get_registry` (the bootstrap path); further
+registries may be bound like any other global. Binds interfaces at a negotiated
+version; serves machine-readable introspection when the connection negotiated
+`connection_options.introspection`.
+"""
+
+[[interface.request]]
+name = "bind"
+doc = """
+Bind an advertised interface at `version`, which must lie inside the
+advertised range. The client-chosen `new_id` becomes the factory instance
+(for global interfaces) or the protocol object (for singletons). The reply
+confirms the pinned version.
+"""
+reply = "bound"
+args = [
+  { name = "interface", type = "string", doc = "Fully qualified interface name, e.g. 'ldp.core.output'." },
+  { name = "version", type = "uint32" },
+  { name = "new_id", type = "new_id", doc = "Client-chosen ID for the bound object." },
+]
+
+[[interface.request]]
+name = "introspect"
+doc = """
+Fetch the schema of one interface as JSON. Requires the introspection option. An
+empty `interface` requests the whole protocol: the server then emits one `schema`
+event per interface (in module then declaration order) so every payload respects
+the string-length limit; completion is observed by pairing the request with
+`connection.sync`.
+"""
+reply = "schema"
+args = [
+  { name = "interface", type = "string", doc = "Fully qualified interface name, or empty for the whole module set." },
+]
+
+[[interface.event]]
+name = "bound"
+doc = "Bind confirmation."
+args = [
+  { name = "interface", type = "string" },
+  { name = "version", type = "uint32" },
+]
+
+[[interface.event]]
+name = "schema"
+doc = "Introspection payload for one interface; the `json` string is bounded by the string-length limit. Empty-interface requests produce one event per interface of the whole protocol."
+args = [
+  { name = "interface", type = "string", doc = "Interface the payload describes." },
+  { name = "json", type = "string", doc = "Compact schema JSON; content guaranteed UTF-8." },
+]
+
+[[interface.event]]
+name = "global"
+doc = "An interface became available (or is being advertised at connection setup)."
+args = [
+  { name = "interface", type = "string" },
+  { name = "version_min", type = "uint32" },
+  { name = "version_max", type = "uint32" },
+]
+
+[[interface.event]]
+name = "global_remove"
+doc = "An interface disappeared. Objects of that interface are revoked before this event."
+
+[[interface]]
+name = "output"
+global = true
+doc = """
+One display output (connector). Emits its geometry, identity, modes, scale,
+transform, color pipeline, HDR and VRR capabilities, and layout position.
+Configuration is not part of this interface; it lives in the privileged
+`ldp.session` display_config interface.
+"""
+
+[[interface.event]]
+name = "capabilities"
+doc = "Capability summary; emitted immediately after binding."
+args = [
+  { name = "caps", type = "bitset", of = "output_caps" },
+]
+
+[[interface.event]]
+name = "geometry"
+doc = "Static geometry and identity of the output."
+args = [
+  { name = "x", type = "int32", doc = "Position in the global logical layout." },
+  { name = "y", type = "int32" },
+  { name = "physical_width", type = "int32", doc = "Physical size in millimeters (0 if unknown)." },
+  { name = "physical_height", type = "int32" },
+  { name = "subpixel", type = "enum", of = "output_subpixel" },
+  { name = "make", type = "string", doc = "Manufacturer string from EDID." },
+  { name = "model", type = "string", doc = "Model string from EDID." },
+  { name = "serial", type = "string", doc = "Serial number string from EDID (stable monitor identity)." },
+]
+
+[[interface.event]]
+name = "mode"
+doc = "One supported mode; emitted per mode after binding and on mode changes."
+args = [
+  { name = "id", type = "uint32", doc = "Stable mode identifier for display_config." },
+  { name = "flags", type = "bitset", of = "mode_flags" },
+  { name = "width", type = "uint32", doc = "Pixels." },
+  { name = "height", type = "uint32" },
+  { name = "refresh_millihz", type = "uint32", doc = "Refresh rate in millihertz (60000 = 60 Hz)." },
+]
+
+[[interface.event]]
+name = "current_mode"
+doc = "The currently active mode."
+args = [
+  { name = "id", type = "uint32" },
+]
+
+[[interface.event]]
+name = "scale"
+doc = "Current scale factor of the output, in 1/256 units (384 = 1.5x). Fractional values are exact."
+args = [
+  { name = "scale_q8", type = "uint32" },
+]
+
+[[interface.event]]
+name = "transform"
+doc = "Current output rotation/flips applied by the display pipeline."
+args = [
+  { name = "transform", type = "enum", of = "transform" },
+]
+
+[[interface.event]]
+name = "color"
+doc = "The output's color pipeline description. Luminances are in 1e-4 cd/m2 units (10000 = 1 cd/m2)."
+args = [
+  { name = "primaries", type = "enum", of = "color_primaries" },
+  { name = "transfer", type = "enum", of = "transfer_function" },
+  { name = "range", type = "enum", of = "color_range" },
+  { name = "luminance_min", type = "uint32" },
+  { name = "luminance_max", type = "uint32" },
+  { name = "reference_white", type = "uint32", doc = "SDR reference white in the same 1e-4 cd/m2 units." },
+]
+
+[[interface.event]]
+name = "hdr_caps"
+doc = "HDR support details of the output."
+args = [
+  { name = "capabilities", type = "bitset", of = "output_hdr_caps" },
+  { name = "mastering_luminance_max", type = "uint32", doc = "1e-4 cd/m2 units." },
+  { name = "max_cll_supported", type = "uint32", doc = "1e-4 cd/m2 units." },
+]
+
+[[interface.event]]
+name = "vrr"
+doc = "Adaptive-sync range of the output."
+args = [
+  { name = "min_refresh_millihz", type = "uint32" },
+  { name = "max_refresh_millihz", type = "uint32" },
+  { name = "modes", type = "bitset", of = "vrr_caps" },
+]
+
+[[interface.event]]
+name = "name"
+doc = "Kernel connector name, e.g. 'DP-1' or 'eDP-1'."
+args = [
+  { name = "name", type = "string" },
+]
+
+[[interface]]
+name = "compositor"
+global = true
+doc = "Factory for surfaces and subsurfaces."
+
+[[interface.request]]
+name = "create_surface"
+doc = "Create a new surface (initially unmapped, sRGB, no buffer)."
+args = [
+  { name = "id", type = "new_id", of = "surface" },
+]
+
+[[interface.request]]
+name = "create_subsurface"
+doc = "Give `surface` the subsurface role under `parent`. Both must be role-free surfaces (a subsurface itself may not take another role)."
+args = [
+  { name = "surface", type = "object", of = "surface" },
+  { name = "parent", type = "object", of = "surface" },
+  { name = "id", type = "new_id", of = "subsurface" },
+]
+
+[[interface]]
+name = "surface"
+doc = """
+The core drawing target. State changes accumulate in a pending state and
+apply atomically at `commit`. The deadline-aware presentation model lives
+here: `frame` registers interest in the next frame; the server answers with
+`frame_target` (deadline), then `presented` or `frame_dropped`.
+"""
+
+[[interface.request]]
+name = "attach"
+doc = "Set the pending buffer. Null detaches (unmaps on commit)."
+args = [
+  { name = "buffer", type = "object", of = "buffer", nullable = true },
+]
+
+[[interface.request]]
+name = "damage"
+doc = "Add surface-coordinate damage (post-transform) for the pending commit. Empty array = no damage."
+args = [
+  { name = "rects", type = "array", of = "rect" },
+]
+
+[[interface.request]]
+name = "damage_buffer"
+doc = "Add buffer-coordinate damage (pre-transform)."
+args = [
+  { name = "rects", type = "array", of = "rect" },
+]
+
+[[interface.request]]
+name = "set_transform"
+doc = "Buffer-to-surface orientation for the pending commit."
+args = [
+  { name = "transform", type = "enum", of = "transform" },
+]
+
+[[interface.request]]
+name = "set_buffer_scale"
+doc = "Intended scale between buffer pixels and surface logical units, 1/256 units."
+args = [
+  { name = "scale_q8", type = "uint32" },
+]
+
+[[interface.request]]
+name = "set_input_region"
+doc = "Region (surface coordinates) where the surface accepts input. Empty array disables all input."
+args = [
+  { name = "rects", type = "array", of = "rect" },
+]
+
+[[interface.request]]
+name = "set_opaque_region"
+doc = "Region the client guarantees fully opaque — enables occlusion and scanout optimization. Empty = assume translucent."
+args = [
+  { name = "rects", type = "array", of = "rect" },
+]
+
+[[interface.request]]
+name = "set_color"
+doc = "Parametric color description of the surface content (default: sRGB full range). Luminances in 1e-4 cd/m2."
+args = [
+  { name = "primaries", type = "enum", of = "color_primaries" },
+  { name = "transfer", type = "enum", of = "transfer_function" },
+  { name = "range", type = "enum", of = "color_range" },
+  { name = "luminance_min", type = "uint32" },
+  { name = "luminance_max", type = "uint32" },
+  { name = "reference_white", type = "uint32" },
+]
+
+[[interface.request]]
+name = "set_hdr_metadata"
+doc = "Static HDR10 mastering metadata for the surface content. Luminances in 1e-4 cd/m2."
+args = [
+  { name = "mastering_primaries", type = "enum", of = "color_primaries" },
+  { name = "mastering_luminance_min", type = "uint32" },
+  { name = "mastering_luminance_max", type = "uint32" },
+  { name = "max_cll", type = "uint32" },
+  { name = "max_fall", type = "uint32" },
+]
+
+[[interface.request]]
+name = "set_presentation_mode"
+doc = "Presentation scheduling policy for this surface."
+args = [
+  { name = "mode", type = "enum", of = "presentation_mode" },
+]
+
+[[interface.request]]
+name = "set_sync_fence"
+doc = "Acquire fence (explicit sync) gating the *next* commit: the server reads the pending buffer only after the fence signals. Null clears."
+args = [
+  { name = "fence", type = "object", of = "fence", nullable = true },
+]
+
+[[interface.request]]
+name = "commit"
+doc = """
+Apply the pending state atomically. The server waits on the acquire fence
+(if any), validates the buffer geometry, then emits `committed` once the
+state is live. Presentation feedback flows through frame IDs.
+"""
+reply = "committed"
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.request]]
+name = "frame"
+doc = "Register interest in the next frame for this surface. The server will emit exactly one frame_target, then presented or frame_dropped for this frame ID."
+reply = "frame_target"
+args = [
+  { name = "frame", type = "uint64", doc = "Client-chosen frame identifier, unique per surface." },
+]
+
+[[interface.event]]
+name = "committed"
+doc = "The commit's state is live (acquire fence signaled, validation passed)."
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface.event]]
+name = "frame_target"
+doc = """
+The deadline contract for the next commit: to land on the target frame, the
+commit (with a signaled acquire fence) must arrive before `target`.
+`refresh` is the current output refresh interval; `budget` is the remaining
+render budget. Under adaptive (VRR) mode the deadline widens into a window.
+"""
+args = [
+  { name = "frame", type = "uint64" },
+  { name = "target", type = "ts", doc = "Absolute monotonic deadline for the commit." },
+  { name = "refresh", type = "uint64", doc = "Current refresh interval in nanoseconds." },
+  { name = "budget", type = "uint64", doc = "Nanoseconds remaining until the deadline at emission time." },
+  { name = "mode", type = "enum", of = "presentation_mode" },
+]
+
+[[interface.event]]
+name = "presented"
+doc = "A frame reached the display."
+args = [
+  { name = "frame", type = "uint64" },
+  { name = "ts", type = "ts", doc = "Presentation (vblank/flip) timestamp." },
+  { name = "refresh", type = "uint64", doc = "Measured refresh interval at presentation, nanoseconds." },
+  { name = "flags", type = "bitset", of = "presented_flags" },
+]
+
+[[interface.event]]
+name = "frame_dropped"
+doc = "A registered frame did not reach the display."
+args = [
+  { name = "frame", type = "uint64" },
+  { name = "reason", type = "enum", of = "frame_drop_reason" },
+]
+
+[[interface.event]]
+name = "enter_output"
+doc = "The surface is now visible on (mapped to) this output."
+args = [
+  { name = "output", type = "object", of = "output" },
+]
+
+[[interface.event]]
+name = "leave_output"
+doc = "The surface is no longer visible on this output."
+args = [
+  { name = "output", type = "object", of = "output" },
+]
+
+[[interface.event]]
+name = "preferred_scale"
+doc = "Server hint of the ideal scale for this surface (fractional, 1/256 units) — e.g. after it moves to another output."
+args = [
+  { name = "scale_q8", type = "uint32" },
+]
+
+[[interface]]
+name = "subsurface"
+doc = "Role object controlling position, stacking and sync mode of a subsurface."
+
+[[interface.request]]
+name = "set_position"
+doc = "Pending position of the subsurface within its parent (surface coordinates); applies at the parent's commit when in sync mode."
+args = [
+  { name = "x", type = "int32" },
+  { name = "y", type = "int32" },
+]
+
+[[interface.request]]
+name = "place_above"
+doc = "Restack immediately above `sibling` (both must be children of the same parent)."
+args = [
+  { name = "sibling", type = "object", of = "surface" },
+]
+
+[[interface.request]]
+name = "place_below"
+doc = "Restack immediately below `sibling`."
+args = [
+  { name = "sibling", type = "object", of = "surface" },
+]
+
+[[interface.request]]
+name = "set_mode"
+doc = "Sync mode: parent-commit-atomic (default) or independent commits."
+args = [
+  { name = "mode", type = "enum", of = "subsurface_mode" },
+]
+
+[[interface]]
+name = "buffer"
+doc = """
+Immutable pixel storage created by shm_pool or dmabuf factories. Released
+with an explicit fence: the server signals the sync-file FD after its last
+read; a client that reuses the buffer without waiting races the compositor
+by its own fault (and the server fences defensively anyway).
+"""
+
+[[interface.event]]
+name = "release"
+doc = "The server is done reading the buffer; the FD is a signalled-or-pending sync-file."
+args = [
+  { name = "fence", type = "fd" },
+]
+
+[[interface]]
+name = "shm"
+global = true
+doc = "Shared-memory buffer factory. Formats are DRM fourcc values (uint32)."
+
+[[interface.event]]
+name = "format"
+doc = "One supported shm format; emitted per format after binding."
+args = [
+  { name = "format", type = "uint32", doc = "DRM fourcc, e.g. 'XR24' 0x34325258." },
+]
+
+[[interface.request]]
+name = "create_pool"
+doc = "Create a pool backed by the passed FD (memfd/shm) of `size` bytes. The server mmaps it read-only."
+args = [
+  { name = "fd", type = "fd" },
+  { name = "size", type = "int64" },
+  { name = "id", type = "new_id", of = "shm_pool" },
+]
+
+[[interface]]
+name = "shm_pool"
+doc = "A shared-memory pool from which buffers are carved."
+
+[[interface.request]]
+name = "create_buffer"
+doc = "Create a buffer view into the pool. Geometry is validated on first attach; stride must be >= width * bytes-per-pixel."
+args = [
+  { name = "offset", type = "int32" },
+  { name = "width", type = "int32" },
+  { name = "height", type = "int32" },
+  { name = "stride", type = "int32" },
+  { name = "format", type = "uint32", doc = "DRM fourcc." },
+  { name = "id", type = "new_id", of = "buffer" },
+]
+
+[[interface.request]]
+name = "resize"
+doc = "Grow (never shrink) the pool; the server re-maps."
+args = [
+  { name = "size", type = "int64" },
+]
+
+[[interface]]
+name = "dmabuf"
+global = true
+doc = """
+DMA-BUF buffer factory for GPU-native zero-copy buffers. `feedback`
+advertises the serving GPU device, formats and modifiers before the first
+create.
+"""
+
+[[interface.event]]
+name = "device"
+doc = "The render node backing this dmabuf factory, e.g. '/dev/dri/renderD128'."
+args = [
+  { name = "dev", type = "string" },
+]
+
+[[interface.event]]
+name = "feedback"
+doc = "Supported format/modifier tranche (parallel arrays, index-aligned)."
+args = [
+  { name = "formats", type = "array", of = "uint32", doc = "DRM fourcc values." },
+  { name = "modifiers", type = "array", of = "uint64", doc = "Format modifiers; 0 = LINEAR, 0x00ffffffffffffff = INVALID." },
+  { name = "device", type = "string" },
+]
+
+[[interface.request]]
+name = "create"
+doc = """
+Create a multi-plane DMA-BUF buffer. `planes`, `offsets`, `strides` are
+parallel arrays (max 4 planes). All plane FDs transfer ownership to the
+server. Validation: plane count matches, geometry in range, modifier
+supported per feedback.
+"""
+args = [
+  { name = "width", type = "uint32" },
+  { name = "height", type = "uint32" },
+  { name = "format", type = "uint32", doc = "DRM fourcc." },
+  { name = "modifier", type = "uint64" },
+  { name = "planes", type = "array", of = "fd", doc = "Plane FD indices (1..4 entries)." },
+  { name = "offsets", type = "array", of = "int32" },
+  { name = "strides", type = "array", of = "int32" },
+  { name = "id", type = "new_id", of = "buffer" },
+]
+
+[[interface]]
+name = "fence"
+doc = """
+Explicit synchronization object wrapping either a sync-file FD or a
+syncobj DMA-BUF timeline point. Used as a surface acquire fence; release
+fences arrive as raw sync-file FDs on `buffer.release`.
+"""
+
+[[interface.request]]
+name = "import_sync_file"
+doc = "Wrap a sync-file FD (ownership transfers)."
+args = [
+  { name = "fd", type = "fd" },
+]
+
+[[interface.request]]
+name = "import_syncobj"
+doc = "Wrap a syncobj DMA-BUF at a timeline point (ownership of the FD transfers)."
+args = [
+  { name = "fd", type = "fd" },
+  { name = "point", type = "uint64" },
+]

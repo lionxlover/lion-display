@@ -1,0 +1,28 @@
+[package]
+name = "ldp-accessibility"
+description = "LDP accessibility layer: settings broadcast, the screen-reader event bus with ordered delivery and focus attribution, and magnifier control"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the a11y layer is
+# pure state over the foundation types (ldp-core: ScopeSet for the
+# a11y_control subscription gate, Q8 scale math, Rect for the magnifier
+# lens, Limits for queue bounds, ObjectId for surface attribution). It
+# reads no clock and opens no devices — every input is injected by the
+# caller. Zero external dependencies, `#![forbid(unsafe_code)]` crate-wide.
+ldp-core = { path = "../ldp-core" }
+
+[dev-dependencies]
+# Conformance corpus only: the wire-value tables this crate's local
+# enums must agree with (spec/a11y.toml via the compiled schema).
+ldp-protocol = { path = "../ldp-protocol" }
+
+[lints]
+workspace = true

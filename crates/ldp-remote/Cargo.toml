@@ -1,0 +1,40 @@
+[package]
+name = "ldp-remote"
+description = "LDP over the network: the TCP relay layer (edge and hub gateways) that carries AF_UNIX sessions — messages, shm pools with per-commit buffer updates, eventfd fences, snapshot files, and streaming pipes — across hosts with token authentication, keepalive, and length-bomb-proof caps"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+# Phase 21 (`docs/roadmap.md`): the post-v0.1.0 remote-transport direction.
+# The library is the relay engine; the binary is the operator gateway.
+
+[lib]
+name = "ldp_remote"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ldp-remote-gateway"
+path = "src/bin/ldp-remote-gateway.rs"
+
+[dependencies]
+# Dependency policy (CONTRIBUTING.md rule 5): only LDP layer crates plus
+# `libc` — the canonical Linux ABI binding for the audited `sys` module
+# (the ldp-transport / ldp-tools precedent: SAFETY-commented wrappers
+# only, no other unsafe anywhere in this crate).
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+ldp-transport = { path = "../ldp-transport" }
+libc = "0.2"
+
+[dev-dependencies]
+# End-to-end suites drive the real Phase 10 compositor in-process (the
+# tests/ harness precedent) and run the showcase example — unmodified,
+# a client that must not know it is remote — against the edge gateway.
+lion-compositor = { path = "../../binaries/lion-compositor" }
+showcase = { path = "../../examples/showcase" }
+ldp-client = { path = "../../crates/ldp-client" }

@@ -1,0 +1,253 @@
+# LDP data module — clipboard, primary selection, drag-and-drop.
+#
+# One data_device per seat. Selection and primary selection are unified in
+# the same interface (LDP design choice: one coherent data exchange model).
+# Payloads stream over pipe FDs; the server never buffers large transfers.
+
+[module]
+name = "ldp.data"
+version_min = 1
+version_max = 1
+doc = """
+Data exchange: clipboard, primary selection, MIME-typed offers, streaming
+transfers over FDs, and drag-and-drop with action negotiation.
+"""
+
+[[import]]
+interface = "ldp.core.surface"
+
+[[import]]
+interface = "ldp.input.seat"
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "dnd_action"
+doc = "The negotiated drag-and-drop action."
+[enum.values]
+copy = 1
+move = 2
+ask = 3
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "dnd_actions"
+doc = "Set of supported drag-and-drop actions."
+[bitset.bits]
+copy = 0
+move = 1
+ask = 2
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "data_device_manager"
+global = true
+doc = "Factory for per-seat data devices and data sources."
+
+[[interface.request]]
+name = "get_data_device"
+doc = "Create the data device for `seat` (one per seat per client)."
+args = [
+  { name = "seat", type = "object", of = "ldp.input.seat" },
+  { name = "id", type = "new_id", of = "data_device" },
+]
+
+[[interface.request]]
+name = "create_data_source"
+doc = "Create a data source: a MIME-typed offer the client will serve on demand."
+args = [
+  { name = "id", type = "new_id", of = "data_source" },
+]
+
+[[interface]]
+name = "data_source"
+doc = """
+A data offer under construction. `offer` adds MIME types before selection.
+When the source becomes the selection or the drag payload, transfer requests
+arrive as `send` events carrying a pipe FD the client writes into.
+"""
+
+[[interface.request]]
+name = "offer"
+doc = "Add one offered MIME type (e.g. 'text/plain;charset=utf-8'). Must precede selection."
+args = [
+  { name = "mime", type = "string" },
+]
+
+[[interface.event]]
+name = "target"
+doc = "The accepted MIME type for the current interaction (empty string: none accepted)."
+args = [
+  { name = "mime", type = "string" },
+]
+
+[[interface.event]]
+name = "actions"
+doc = "Actions available for the current drag (client should narrow via offer.set_actions)."
+args = [
+  { name = "actions", type = "bitset", of = "dnd_actions" },
+]
+
+[[interface.event]]
+name = "send"
+doc = "A receiver asked for `mime`; write the payload into `fd` (pipe) and close it. FD ownership transfers with this event."
+args = [
+  { name = "mime", type = "string" },
+  { name = "fd", type = "fd" },
+]
+
+[[interface.event]]
+name = "cancelled"
+doc = "The source is no longer the selection / the drag aborted; the client may destroy it."
+
+[[interface.event]]
+name = "dnd_drop_performed"
+doc = "The user dropped; finish writing the payload."
+
+[[interface.event]]
+name = "dnd_finished"
+doc = "The drop completed with the negotiated action; release drag-side resources."
+
+[[interface]]
+name = "data_device"
+doc = """
+Per-seat data exchange: selection ownership, primary selection, drag-and-drop
+driving. Selection set requires seat focus (serial must reference an input
+event of this seat).
+"""
+
+[[interface.request]]
+name = "set_selection"
+doc = "Set the clipboard selection to `source` (null clears if the caller owns it)."
+args = [
+  { name = "source", type = "object", of = "data_source", nullable = true },
+  { name = "serial", type = "uint32" },
+]
+
+[[interface.request]]
+name = "set_primary_selection"
+doc = "Set the primary (middle-click paste) selection. Unified with the clipboard in LDP."
+args = [
+  { name = "source", type = "object", of = "data_source", nullable = true },
+  { name = "serial", type = "uint32" },
+]
+
+[[interface.request]]
+name = "start_drag"
+doc = "Begin a drag of `source` from `origin`; `icon` is an optional surface shown under the cursor."
+args = [
+  { name = "source", type = "object", of = "data_source" },
+  { name = "origin", type = "object", of = "ldp.core.surface" },
+  { name = "icon", type = "object", of = "ldp.core.surface", nullable = true },
+  { name = "serial", type = "uint32", doc = "Must reference a button press on this seat." },
+]
+
+[[interface.event]]
+name = "data_offer"
+doc = "A new offer was created (selection or drag); its ID is announced before enter/selection events referencing it."
+args = [
+  { name = "id", type = "new_id", of = "data_offer", doc = "Server-chosen object ID." },
+]
+
+[[interface.event]]
+name = "selection"
+doc = "The clipboard selection changed (null: emptied or owner destroyed)."
+args = [
+  { name = "offer", type = "object", of = "data_offer", nullable = true },
+]
+
+[[interface.event]]
+name = "primary_selection"
+doc = "The primary selection changed (null: emptied or owner destroyed)."
+args = [
+  { name = "offer", type = "object", of = "data_offer", nullable = true },
+]
+
+[[interface.event]]
+name = "enter"
+doc = "A drag entered a surface of this client."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+  { name = "offer", type = "object", of = "data_offer", nullable = true },
+]
+
+[[interface.event]]
+name = "motion"
+doc = "Drag motion within the entered surface."
+args = [
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "drop"
+doc = "The user dropped on this client's surface; call offer.receive, then offer.finish."
+
+[[interface.event]]
+name = "leave"
+doc = "The drag left the surface / was cancelled."
+
+[[interface]]
+name = "data_offer"
+doc = """
+An incoming offer (selection or drag). `offer` events enumerate MIME types;
+`receive` requests a streaming transfer (write side of a pipe FD is handed
+to the source). DnD offers additionally negotiate actions.
+"""
+
+[[interface.request]]
+name = "accept"
+doc = "Signal which MIME type will be requested (lets the source prepare; empty string: none)."
+args = [
+  { name = "mime", type = "string" },
+]
+
+[[interface.request]]
+name = "receive"
+doc = "Request `mime`; the source writes the payload into `fd` (a pipe the client created). FD ownership transfers."
+args = [
+  { name = "mime", type = "string" },
+  { name = "fd", type = "fd" },
+]
+
+[[interface.request]]
+name = "finish"
+doc = "The drop completed successfully (DnD only; after receiving the payload)."
+
+[[interface.request]]
+name = "set_actions"
+doc = "Narrow the acceptable action set (DnD only)."
+args = [
+  { name = "actions", type = "bitset", of = "dnd_actions" },
+]
+
+[[interface.event]]
+name = "offer"
+doc = "One offered MIME type."
+args = [
+  { name = "mime", type = "string" },
+]
+
+[[interface.event]]
+name = "source_actions"
+doc = "Actions offered by the drag source."
+args = [
+  { name = "actions", type = "bitset", of = "dnd_actions" },
+]
+
+[[interface.event]]
+name = "action"
+doc = "The action selected by the compositor after negotiation."
+args = [
+  { name = "action", type = "enum", of = "dnd_action" },
+]

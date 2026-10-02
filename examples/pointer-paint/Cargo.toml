@@ -1,0 +1,25 @@
+[package]
+name = "pointer-paint"
+description = "Example: an input-driven client — evdev pointer motion painted into a committed surface, frame by frame"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+ldp-core = { path = "../../crates/ldp-core" }
+ldp-input = { path = "../../crates/ldp-input" }
+ldp-tools = { path = "../../tools/ldp-tools" }
+ldp-transport = { path = "../../crates/ldp-transport" }
+
+[dev-dependencies]
+# The scripted scenario drives the example against the Phase 10
+# compositor brought up in-process (the testbench pattern).
+lion-compositor = { path = "../../binaries/lion-compositor" }
+
+[lints]
+workspace = true

@@ -1,0 +1,106 @@
+# LDP color module — ICC profile import and color capability discovery.
+#
+# Parametric color descriptions (primaries/transfer/range/luminances) are core
+# arguments on surface.set_color and output.color; this module adds the
+# ICC-based path and capability discovery for the color pipeline.
+
+[module]
+name = "ldp.color"
+version_min = 1
+version_max = 1
+doc = """
+Color management beyond the parametric core: ICC profile import, capability
+discovery, and profile-to-description resolution. The compositor blends in
+linear light and tone-maps per output (BT.2390); this module exposes the
+client-facing surface of that pipeline.
+"""
+
+[[import]]
+interface = "ldp.core.surface"
+
+[[import]]
+enum = "ldp.core.color_primaries"
+
+[[import]]
+enum = "ldp.core.transfer_function"
+
+[[import]]
+enum = "ldp.core.color_range"
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "color_caps"
+doc = "Color pipeline capabilities of the server."
+[bitset.bits]
+parametric = 0
+icc_v2 = 1
+icc_v4 = 2
+wide_gamut = 3
+hdr = 4
+linear_blending = 5
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "color_manager"
+global = true
+doc = """
+Entry point for the color pipeline: capability discovery and ICC import.
+Profiles are resolved to parametric descriptions the server can composite
+with; the resolution result is reported back on the profile object.
+"""
+
+[[interface.event]]
+name = "capabilities"
+doc = "Server color pipeline capabilities; emitted after binding."
+args = [
+  { name = "caps", type = "bitset", of = "color_caps" },
+]
+
+[[interface.request]]
+name = "import_icc"
+doc = """
+Import an ICC profile (v2 or v4 matrix/TRC) from a readable FD. The server
+parses it and emits `description` on the new profile object with the
+parametric description it will use. FD ownership transfers.
+"""
+args = [
+  { name = "fd", type = "fd" },
+  { name = "id", type = "new_id", of = "color_profile" },
+]
+
+[[interface]]
+name = "color_profile"
+doc = """
+An imported ICC profile. Attach it to a surface with
+`surface.set_color_profile` (core extension request, capability-gated) or
+query the parametric resolution via `description`.
+"""
+
+[[interface.event]]
+name = "description"
+doc = """
+The parametric description the server resolved the profile to. Luminances in
+1e-4 cd/m2. If the profile cannot be represented exactly, this is the
+closest composite-safe approximation.
+"""
+args = [
+  { name = "primaries", type = "enum", of = "ldp.core.color_primaries" },
+  { name = "transfer", type = "enum", of = "ldp.core.transfer_function" },
+  { name = "range", type = "enum", of = "ldp.core.color_range" },
+  { name = "luminance_min", type = "uint32" },
+  { name = "luminance_max", type = "uint32" },
+  { name = "reference_white", type = "uint32" },
+]
+
+[[interface.event]]
+name = "rejected"
+doc = "The profile was unparseable or unsafe (malformed tag table, unsupported class); the object is inert."
+args = [
+  { name = "reason", type = "string", doc = "Diagnostic (never echoed to end users)." },
+]

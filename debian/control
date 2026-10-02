@@ -1,0 +1,86 @@
+Source: lion-display
+Section: x11
+Priority: optional
+Maintainer: LionOS Project <dev@lionos.example>
+Rules-Requires-Root: no
+Standards-Version: 4.6.2
+Homepage: https://lionos.example
+Vcs-Git: https://github.com/lionos/lion-display.git
+Vcs-Browser: https://github.com/lionos/lion-display
+Build-Depends: cargo, rustc (>= 1.75)
+
+Package: lion-compositor
+Architecture: any
+Depends: libc6 (>= 2.34)
+Recommends: libdrm2, libegl1, libxkbcommon0
+Suggests: ldp-tools
+Description: LDP reference compositor — the Lion Display Protocol server
+ lion-compositor is the reference server of the Lion Display Protocol
+ (LDP): a deadline-scheduled, capability-secured display protocol stack
+ written in safe Rust (zero unsafe code in the server path).
+ .
+ v0.10.0 serves the complete LDP protocol surface — on the
+ deterministic mock display (the reference vehicle for clients,
+ operator tools, and CI) and, with --mode drm, on real hardware:
+ DRM-Master rights, mapped dumb scanout buffers, the applied atomic
+ modeset, page flips on the DRM fd and LDP clients on the socket,
+ clean teardown on exit — and the served pipeline follows the
+ topology live: monitor swaps migrate the scanout without losing a
+ session, the last display going away leaves the compositor honestly
+ dark while the protocol keeps serving, and the first re-plug paints
+ the desktop again. The v0.10.0 tier stack: --outputs multi serves
+ every pipeline the allocator finds (one logical desktop,
+ per-output visibility, topology motion mid-session); --scale F
+ advertises the true fractional factor and re-resolves the shell on
+ the logical canvas; --hdr wires the PQ pipeline with the mode
+ controller's hysteresis; --vrr arms VRR_ENABLED on every capable
+ output's flips; --idle MS runs the DPMS blanking ladder; the API
+ stability freeze gate (ldpc snapshot --check) pins the v1 surface
+ byte-for-byte, and the clipboard data family is served end to end
+ (MIME offers, real pipes, honest teardown).
+ Composites on the GPU through an EGL+GLES 2.0 backend whenever the
+ machine has a real GL stack (imported EGLImage layers ride the
+ zero-copy arm); the probe classifies the GPU (discrete,
+ integrated, virtual, software rasterizer) and auto
+ refuses CPU-rasterized GL in favor of the faster specialized
+ software backend, naming the device in the startup report
+ (--renderer); --resolution WxH forces any offered mode with the
+ honest menu on a miss; --probe validates the whole bring-up under
+ TEST_ONLY; relays whole sessions across hosts through the remote
+ gateways. See /usr/share/doc/lion-compositor/maturity.md.gz for
+ the honest scope matrix.
+ .
+ The package also ships lion-bridge, the compatibility door: Wayland
+ clients become LDP windows one-for-one (--wayland PATH), an X11
+ screen becomes one rootful LDP window (--x11 PATH) — foreign
+ sessions each ride their own LDP client identity behind a
+ bridge-scope token.
+ .
+ A systemd unit (lion-compositor.service) ships in the package.
+
+Package: ldp-tools
+Architecture: any
+Depends: libc6 (>= 2.34)
+Recommends: libdrm2, libegl1
+Suggests: lion-compositor, python3
+Description: LDP operator toolchain — eight live tools, benchmarks, and the protocol compiler
+ The operator toolchain of the Lion Display Protocol stack:
+ .
+  * ldp-info        — compiled protocol summary, live session report,
+                      DRM/KMS + GPU topology probe
+  * ldp-debug       — live event tracer and scheduler-timeline replay
+  * ldp-validate    — spec-directory lint and live schema cross-check
+  * ldp-profiler    — frame latency / deadline hit-rate measurement
+  * ldp-audit       — JSONL audit-log structural + hash-chain verifier
+  * ldp-input-debug — evdev dump analysis with inferred device specs
+  * ldp-grab        — screen capture to PNG or PPM (single or
+                      multi-frame sequences)
+  * ldp-remote-gateway — the remote relay (edge/hub) carrying LDP
+                      sessions across hosts, pixel-exact
+  * ldp-bench       — the release benchmark runner
+  * ldpc            — the protocol compiler (TOML spec -> Rust tables
+                      + introspection blobs + reference docs)
+ .
+ Also ships the three example applications (hello-ldp, pointer-paint,
+ clip-client) under /usr/lib/lion-display/examples/. Every binary
+ answers --version with the release version.

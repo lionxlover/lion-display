@@ -1,0 +1,223 @@
+# LDP session module — session lifecycle, power, and privileged display config.
+#
+# Session events mirror logind transitions (locked, sleeping, resumed);
+# inhibitors follow logind semantics; display_config is the only path to
+# output reconfiguration and requires the configure_display scope.
+
+[module]
+name = "ldp.session"
+version_min = 1
+version_max = 1
+doc = """
+Session lifecycle and privileged configuration: lock/unlock, idle stages,
+suspend/resume, shutdown notice, inhibitors, and display configuration
+(layout, modes, scale, transform, VRR policy, HDR, backlight).
+"""
+
+[[import]]
+interface = "ldp.core.output"
+
+[[import]]
+enum = "ldp.core.transform"
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "idle_stage"
+doc = "Idle progression of the session (monotonic under normal operation)."
+[enum.values]
+active = 1
+dimmed = 2
+off = 3
+suspend = 4
+
+[[enum]]
+name = "vrr_policy"
+doc = "Adaptive-sync policy per output."
+[enum.values]
+off = 1       # fixed at mode refresh
+deadline = 2  # VRR window mode: commit at ready within [min,max]
+always = 3    # lowest achievable latency, still tear-free
+
+[[enum]]
+name = "sleep_kind"
+doc = "Why the session is going to sleep."
+[enum.values]
+idle = 1
+manual = 2
+lid = 3
+low_battery = 4
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "inhibit_bits"
+doc = "Which behaviors a session inhibitor delays."
+[bitset.bits]
+blur = 0      # delay dimming/blur of lock screen
+display = 1   # delay display DPMS-off
+idle = 2      # delay idle suspend
+suspend = 3   # delay system suspend
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "session"
+global = true
+doc = """
+The session lifecycle interface. Events mirror logind transitions;
+inhibitors are cookies that delay power management until released
+(via connection.destroy of the returned object) or the client disconnects.
+"""
+
+[[interface.event]]
+name = "locked"
+doc = "The session is now locked; only the lock surface is interactive."
+
+[[interface.event]]
+name = "unlocked"
+doc = "The session was unlocked."
+
+[[interface.event]]
+name = "idle"
+doc = "Idle stage transition; `active` is reported on user activity and resume."
+args = [
+  { name = "stage", type = "enum", of = "idle_stage" },
+]
+
+[[interface.event]]
+name = "sleeping"
+doc = "The session is entering sleep; clients should flush state and stop rendering."
+args = [
+  { name = "kind", type = "enum", of = "sleep_kind" },
+]
+
+[[interface.event]]
+name = "resumed"
+doc = "The session resumed; frame timelines were re-anchored and fences drained."
+args = [
+  { name = "suspended_ms", type = "uint64", doc = "Approximate sleep duration in milliseconds." },
+]
+
+[[interface.event]]
+name = "shutdown"
+doc = "Session is ending: `shutdown` true = poweroff, false = reboot. Clients should save state; the compositor drains frames and releases DRM."
+args = [
+  { name = "shutdown", type = "bool" },
+]
+
+[[interface.request]]
+name = "inhibit"
+doc = "Take an inhibitor (delays the behaviors in `types`); returned object released via connection.destroy."
+reply = "inhibited"
+args = [
+  { name = "types", type = "bitset", of = "inhibit_bits" },
+]
+
+[[interface.request]]
+name = "set_idle_timeout"
+doc = "Set the idle timeout in milliseconds (requires configure_display scope — settings daemon territory)."
+args = [
+  { name = "timeout_ms", type = "uint32" },
+]
+
+[[interface.request]]
+name = "get_display_config"
+doc = "Create the display configuration object (requires configure_display scope)."
+args = [
+  { name = "id", type = "new_id", of = "display_config" },
+]
+
+[[interface.event]]
+name = "inhibited"
+doc = "Inhibitor granted; the object holds it."
+args = [
+  { name = "cookie", type = "uint32" },
+]
+
+[[interface]]
+name = "display_config"
+doc = """
+Privileged output reconfiguration. Collect changes with `configure`, then
+apply them atomically at a vblank with `apply`. Every applied change is
+reflected back as output events on the affected ldp.core.output objects.
+"""
+
+[[interface.request]]
+name = "get_outputs"
+doc = "Request the current configuration snapshot; one `output_config` event per output follows."
+reply = "applied"
+args = []
+
+[[interface.request]]
+name = "configure"
+doc = "Stage a change for `output`. Validated immediately (mode exists, transform/scale legal); errors surface at `apply`."
+args = [
+  { name = "output", type = "object", of = "ldp.core.output" },
+  { name = "position_x", type = "int32", doc = "Position in the global logical layout." },
+  { name = "position_y", type = "int32" },
+  { name = "scale_q8", type = "uint32", doc = "Scale in 1/256 units." },
+  { name = "transform", type = "enum", of = "ldp.core.transform" },
+  { name = "mode_id", type = "uint32", doc = "Mode ID from output.mode events." },
+  { name = "vrr", type = "enum", of = "vrr_policy" },
+  { name = "hdr_enabled", type = "bool" },
+]
+
+[[interface.request]]
+name = "apply"
+doc = "Atomically apply all staged changes at the next vblank. Reply reports success or the first failure."
+reply = "applied"
+args = []
+
+[[interface.request]]
+name = "get_brightness"
+doc = "Query the backlight level of `output`."
+reply = "brightness"
+args = [
+  { name = "output", type = "object", of = "ldp.core.output" },
+]
+
+[[interface.request]]
+name = "set_brightness"
+doc = "Set the backlight level (0..max, ramped by the server to avoid flicker)."
+args = [
+  { name = "output", type = "object", of = "ldp.core.output" },
+  { name = "level", type = "uint32" },
+]
+
+[[interface.event]]
+name = "output_config"
+doc = "One output's current configuration (emitted per output after get_outputs)."
+args = [
+  { name = "output", type = "object", of = "ldp.core.output" },
+  { name = "position_x", type = "int32" },
+  { name = "position_y", type = "int32" },
+  { name = "scale_q8", type = "uint32" },
+  { name = "transform", type = "enum", of = "ldp.core.transform" },
+  { name = "mode_id", type = "uint32" },
+  { name = "vrr", type = "enum", of = "vrr_policy" },
+  { name = "hdr_enabled", type = "bool" },
+]
+
+[[interface.event]]
+name = "applied"
+doc = "Result of `apply` (or the terminal event of a get_outputs snapshot with ok=true)."
+args = [
+  { name = "ok", type = "bool" },
+  { name = "error", type = "string", doc = "First failure reason when ok is false; empty otherwise." },
+]
+
+[[interface.event]]
+name = "brightness"
+doc = "Current backlight level."
+args = [
+  { name = "output", type = "object", of = "ldp.core.output" },
+  { name = "level", type = "uint32" },
+  { name = "max", type = "uint32" },
+]

@@ -1,0 +1,29 @@
+[package]
+name = "ldp-client"
+description = "LDP client library: connection, handshake, proxies, class-lane event dispatch, sync/roundtrip, reconnect helpers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the client library
+# is what every application links; it stays on the LDP layer crates only
+# (all zero-dependency beyond each other). No async runtime, no rand —
+# reconnect jitter is a seeded LCG, backoff is std::thread::sleep.
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+ldp-transport = { path = "../ldp-transport" }
+
+[dev-dependencies]
+# Exit criteria (roadmap Phase 5) run the client against a real
+# ldp-server over a real socket pair: the full-session and flood tests
+# drive a Server with a scripted dispatcher.
+ldp-server = { path = "../ldp-server" }
+
+[lints]
+workspace = true

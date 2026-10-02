@@ -1,0 +1,128 @@
+#!/usr/bin/make -f
+# lion-display — packaging rules.
+#
+# Deliberately NOT debhelper-based: this package builds with plain
+# POSIX make + cargo + dpkg-gencontrol + dpkg-deb so that the build
+# runs anywhere dpkg-dev exists (the project CI sandbox ships no
+# debhelper), fully unprivileged via `Rules-Requires-Root: no`
+# (dpkg-deb --root-owner-group normalizes file ownership to root).
+#
+# Target graph (what dpkg-buildpackage -b drives):
+#   clean -> binary -> binary-arch -> install -> build -> build-arch
+#
+# NOTE on `clean`: it removes the staging trees but intentionally keeps
+# cargo's target/ cache — like the project's own verify.sh, repeated
+# builds are incremental. A pristine tree is one `cargo clean` away.
+
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
+
+# rustup user-local installs (the documented install path) plus system cargo.
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+
+VERSION := $(shell dpkg-parsechangelog -S Version)
+ARCH    := $(shell dpkg --print-architecture)
+
+CARGO      ?= cargo
+BUILD_PKGS := lion-compositor ldp-tools ldp-test ldpc hello-ldp pointer-paint clip-client ldp-remote lion-bridge
+
+COMPOSITOR_BIN  := target/release/lion-compositor
+BRIDGE_BIN       := target/release/lion-bridge
+TOOLS_BINS      := ldp-info ldp-debug ldp-validate ldp-profiler ldp-audit ldp-input-debug ldp-grab ldp-bench ldpc ldp-remote-gateway
+EXAMPLE_BINS    := hello-ldp pointer-paint clip-client
+ALL_BINS        := $(COMPOSITOR_BIN) $(BRIDGE_BIN) $(addprefix target/release/,$(TOOLS_BINS) $(EXAMPLE_BINS))
+SYSTEMD_UNIT    := packaging/systemd/lion-compositor.service
+
+OUT_DIR := ..
+
+.PHONY: build build-arch build-indep install binary binary-arch binary-indep clean
+
+# ---------------------------------------------------------------------------
+# build
+
+build: build-arch
+
+build-arch:
+	$(CARGO) build --release $(addprefix -p ,$(BUILD_PKGS))
+	# Fail fast if an expected binary did not land.
+	for b in $(ALL_BINS); do \
+		test -x "$$b" || { echo "missing build output: $$b" >&2; exit 1; }; \
+	done
+	# dh_strip-equivalent: drop symbol tables from the release binaries
+	# (the release-debug profile exists for profiling workflows).
+	for b in $(ALL_BINS); do \
+		strip --strip-unneeded "$$b"; \
+	done
+
+build-indep:
+	@: # no arch-independent artifacts
+
+# ---------------------------------------------------------------------------
+# install: stage both binary packages (usr-merge layout)
+
+install: build
+
+install:
+	rm -rf debian/lion-compositor debian/ldp-tools
+	# ---- lion-compositor ---------------------------------------------------
+	install -D -m 0755 $(COMPOSITOR_BIN) \
+		debian/lion-compositor/usr/bin/lion-compositor
+	# The compatibility door ships beside the server it feeds (the
+	# v0.10.0 release discipline: the bridge is a served feature, not
+	# an out-of-tree extra).
+	install -D -m 0755 $(BRIDGE_BIN) \
+		debian/lion-compositor/usr/bin/lion-bridge
+	install -D -m 0644 $(SYSTEMD_UNIT) \
+		debian/lion-compositor/usr/lib/systemd/system/lion-compositor.service
+	install -D -m 0644 debian/copyright \
+		debian/lion-compositor/usr/share/doc/lion-compositor/copyright
+	gzip -n -9 < debian/changelog \
+		> debian/lion-compositor/usr/share/doc/lion-compositor/changelog.gz
+	gzip -n -9 < docs/admin-guide.md \
+		> debian/lion-compositor/usr/share/doc/lion-compositor/admin-guide.md.gz
+	gzip -n -9 < docs/maturity.md \
+		> debian/lion-compositor/usr/share/doc/lion-compositor/maturity.md.gz
+	# ---- ldp-tools -----------------------------------------------------------
+	for b in $(TOOLS_BINS); do \
+		install -D -m 0755 target/release/$$b debian/ldp-tools/usr/bin/$$b; \
+	done
+	for b in $(EXAMPLE_BINS); do \
+		install -D -m 0755 target/release/$$b \
+			debian/ldp-tools/usr/lib/lion-display/examples/$$b; \
+	done
+	install -D -m 0644 debian/copyright \
+		debian/ldp-tools/usr/share/doc/ldp-tools/copyright
+	gzip -n -9 < debian/changelog \
+		> debian/ldp-tools/usr/share/doc/ldp-tools/changelog.gz
+	gzip -n -9 < docs/user-guide.md \
+		> debian/ldp-tools/usr/share/doc/ldp-tools/user-guide.md.gz
+
+# ---------------------------------------------------------------------------
+# binary: generate control + md5sums and pack
+
+binary: binary-arch
+
+binary-arch: install
+	mkdir -p debian/lion-compositor/DEBIAN debian/ldp-tools/DEBIAN
+	dpkg-gencontrol -Pdebian/lion-compositor -plion-compositor
+	( cd debian/lion-compositor && \
+		find . -type f ! -path './DEBIAN/*' -print0 | \
+		sort -z | xargs -0 md5sum > DEBIAN/md5sums )
+	dpkg-deb --build --root-owner-group debian/lion-compositor \
+		$(OUT_DIR)/lion-compositor_$(VERSION)_$(ARCH).deb
+	dpkg-gencontrol -Pdebian/ldp-tools -pldp-tools
+	( cd debian/ldp-tools && \
+		find . -type f ! -path './DEBIAN/*' -print0 | \
+		sort -z | xargs -0 md5sum > DEBIAN/md5sums )
+	dpkg-deb --build --root-owner-group debian/ldp-tools \
+		$(OUT_DIR)/ldp-tools_$(VERSION)_$(ARCH).deb
+
+binary-indep:
+	@: # no arch-independent packages
+
+# ---------------------------------------------------------------------------
+# clean
+
+clean:
+	rm -rf debian/lion-compositor debian/ldp-tools debian/files
+	# target/ is cargo's incremental cache, not packaging state; kept.

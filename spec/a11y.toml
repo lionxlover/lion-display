@@ -1,0 +1,148 @@
+# LDP accessibility module — settings broadcast, screen-reader bus, magnifier.
+#
+# Clients announce their semantic content (a11y_provider); assistive
+# technologies subscribe through the a11y_control scope and drive the
+# magnifier. Keyboard access features are processed in ldp-input; their
+# enabled state is broadcast here.
+
+[module]
+name = "ldp.a11y"
+version_min = 1
+version_max = 1
+doc = """
+Accessibility: settings broadcast (high contrast, reduced motion, text
+scale, keyboard access features), a screen-reader event bus, and magnifier
+control. Assistive technology subscribes with the `a11y_control` scope;
+content providers announce with a11y_provider.
+"""
+
+[[import]]
+interface = "ldp.core.surface"
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "announce_priority"
+doc = "How urgently a screen reader should speak an announcement."
+[enum.values]
+polite = 1
+assertive = 2
+urgent = 3
+
+[[enum]]
+name = "magnifier_follow"
+doc = "What the magnifier lens tracks."
+[enum.values]
+focus = 1
+caret = 2
+pointer = 3
+center = 4
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "a11y_settings"
+doc = "Accessibility feature toggle set (values with parameters arrive in dedicated events)."
+[bitset.bits]
+high_contrast = 0
+reduced_motion = 1
+sticky_keys = 3
+slow_keys = 4
+bounce_keys = 5
+mouse_keys = 6
+screen_reader = 7
+magnifier = 8
+caption = 9
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "accessibility"
+global = true
+doc = """
+Accessibility settings and assistive technology entry point. Settings
+events are broadcast to every bound client so toolkits can restyle
+immediately.
+"""
+
+[[interface.event]]
+name = "settings"
+doc = "Current feature toggles plus text scale (1/256 units) and cursor size (logical pixels)."
+args = [
+  { name = "enabled", type = "bitset", of = "a11y_settings" },
+  { name = "text_scale_q8", type = "uint32" },
+  { name = "cursor_size", type = "uint32" },
+]
+
+[[interface.request]]
+name = "get_provider"
+doc = "Create the client's a11y provider (semantic announcements for screen readers)."
+args = [
+  { name = "id", type = "new_id", of = "a11y_provider" },
+]
+
+[[interface.request]]
+name = "set_magnifier"
+doc = "Control the magnifier (requires a11y_control scope). `scale_q8` in 1/256 units; 0 keeps current."
+args = [
+  { name = "enabled", type = "bool" },
+  { name = "follow", type = "enum", of = "magnifier_follow" },
+  { name = "scale_q8", type = "uint32" },
+]
+
+[[interface.request]]
+name = "announce"
+doc = "Server-level announcement from assistive tech (requires a11y_control scope) — e.g. system dialogs speaking."
+args = [
+  { name = "text", type = "string" },
+  { name = "priority", type = "enum", of = "announce_priority" },
+]
+
+[[interface]]
+name = "a11y_provider"
+doc = """
+Per-client semantic announcer. Events from here reach subscribed assistive
+technologies in order with focus attribution. Providers must keep
+announcements in sync with their visible UI state.
+"""
+
+[[interface.request]]
+name = "announce"
+doc = "Speakable announcement (status changes, alerts)."
+args = [
+  { name = "text", type = "string" },
+  { name = "priority", type = "enum", of = "announce_priority" },
+]
+
+[[interface.request]]
+name = "focus_changed"
+doc = "The provider's logical focus moved to `surface` with the given role/label (ARIA-style)."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "role", type = "string", doc = "e.g. 'button', 'text_field', 'checkbox'." },
+  { name = "label", type = "string" },
+]
+
+[[interface.request]]
+name = "caret_moved"
+doc = "Text caret position within `surface` (surface coordinates, for magnifier tracking)."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "x", type = "int32" },
+  { name = "y", type = "int32" },
+]
+
+[[interface.request]]
+name = "state_changed"
+doc = "A semantic state value changed (e.g. checkbox checked, toggle on)."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "state", type = "string", doc = "State name." },
+  { name = "value", type = "string", doc = "State value." },
+]

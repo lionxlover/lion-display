@@ -1,0 +1,30 @@
+[package]
+name = "ldp-security"
+description = "LDP capability security: the permission matrix, app manifests, the session broker (escalation prompts, 256-bit token minting/validation), and the hash-chained audit log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the security
+# layer is pure policy over the foundation types (ldp-core: Scope/
+# ScopeSet for the matrix, AccessToken for the grant table, SandboxFlavor
+# for manifests, Mono for expiry math). It reads no clock (every time
+# input is injected by the caller), opens no sockets, and mints entropy
+# only through the TokenSeed seam — the deployment host plugs OS
+# randomness; tests plug a deterministic LCG. Zero external
+# dependencies, `#![forbid(unsafe_code)]` crate-wide.
+ldp-core = { path = "../ldp-core" }
+
+[dev-dependencies]
+# Conformance corpus only: the wire-value tables this crate's local
+# enums must agree with (spec/security.toml via the compiled schema).
+ldp-protocol = { path = "../ldp-protocol" }
+
+[lints]
+workspace = true

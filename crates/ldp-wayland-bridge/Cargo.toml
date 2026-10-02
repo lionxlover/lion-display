@@ -1,0 +1,38 @@
+[package]
+name = "ldp-wayland-bridge"
+description = "LDP compatibility bridge: a pure-Rust Wayland compositor subset (core + xdg-shell) mapping foreign windows onto LDP surfaces with implicit-to-explicit sync translation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the crate is pure
+# protocol machinery — a Wayland wire codec over a hand-pinned subset
+# schema, the compositor-side state machines (surface double-buffering,
+# xdg-shell configure/ack, seat serials), and an LDP driver emitting /
+# absorbing `ldp-protocol` messages. Sockets, client pools and the keymap
+# fd are seams the process binary supplies; the crate reads no clock and
+# holds no `unsafe`.
+#
+# ldp-shell: the xdg positioner vocabulary (anchor / gravity /
+# constraint bits) was designed as the LDP superset of the xdg-shell
+# placement model — the bridge translates a foreign positioner into an
+# `ldp.shell.get_popup` argument set through the shell's own types
+# rather than re-deriving placement policy (one placement authority).
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+ldp-shell = { path = "../ldp-shell" }
+
+[dev-dependencies]
+# Conformance-only: the EC requires the driver to authenticate with a
+# real bridge-scope capability token minted by the Phase 16 grant
+# machinery (forgery corpus cross-checks the rejection paths).
+ldp-security = { path = "../ldp-security" }
+
+[lints]
+workspace = true

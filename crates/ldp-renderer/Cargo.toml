@@ -1,0 +1,24 @@
+[package]
+name = "ldp-renderer"
+description = "LDP rendering backends: the Renderer contract and the reference software compositor (format-complete sampling, all-buffer transforms, color-pipeline hooks, damage-clipped span compositing)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the renderer is pure
+# sampling/blending math over the shared foundation types — formats, plane
+# layouts, geometry, transforms and color descriptions all live in ldp-core.
+# It deliberately does NOT depend on ldp-protocol (wire), ldp-server
+# (sessions) or ldp-compositor (scene state), and it never reads a clock:
+# rendering is a pure function of (output, damage, layers), which is what
+# makes the golden-image suite byte-stable across runs.
+ldp-core = { path = "../ldp-core" }
+
+[lints]
+workspace = true

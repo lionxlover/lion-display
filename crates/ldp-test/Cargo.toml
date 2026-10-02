@@ -1,0 +1,25 @@
+[package]
+name = "ldp-test"
+description = "Deterministic test support for LDP: seeded RNG and mutators, the spec-walking conformance runner, and the benchmark harness behind ldp-bench."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+ldp-transport = { path = "../ldp-transport" }
+ldp-color = { path = "../ldp-color" }
+ldp-security = { path = "../ldp-security" }
+ldp-compositor = { path = "../ldp-compositor" }
+ldp-clipboard = { path = "../ldp-clipboard" }
+ldp-renderer = { path = "../ldp-renderer" }
+ldp-remote = { path = "../ldp-remote" }
+
+[lints]
+workspace = true

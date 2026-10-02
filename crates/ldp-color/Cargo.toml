@@ -1,0 +1,30 @@
+[package]
+name = "ldp-color"
+description = "LDP color math: the canonical transfer curves (sRGB/PQ/HLG/gamma, f32 pipeline paths plus an f64 PQ reference), XYZ-derived primaries matrices with published ITU/IEC anchors, exact integer PQ ramps, luma-preserving soft-knee gamut mapping, the BT.2390-structured tone mapper, and ICC v2/v4 matrix-TRC profile import with deterministic canonical re-serialization"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): color math is pure
+# deterministic arithmetic over the wire vocabulary (primaries, transfer
+# functions, luminances, color descriptions) that ldp-core already owns.
+# No libc, no external crates: the KAVT suite pins every formula against
+# independently transcribed references so the math carries itself.
+ldp-core = { path = "../ldp-core" }
+
+[dev-dependencies]
+# The Phase 8 renderer carries its own tolerance-anchored copies of the
+# transfer curves and the primaries-matrix derivation (the per-pixel
+# pipeline hook). This dev-dependency exists solely for the cross-
+# consistency suite pinning the two implementations equal, so the two
+# can never drift apart silently.
+ldp-renderer = { path = "../ldp-renderer" }
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+[package]
+name = "ldp-gpu"
+description = "LDP GPU backend: DRM node discovery with a deterministic render-node selection policy, DMA-BUF import descriptors and their EGL_EXT_image_dma_buf_import(_modifiers) attribute encoding, the fence/sync model (sync files, timeline points, AND-merges, a virtual-clock mock driver accepting ldp-display's mock tokens), and an EGL bootstrap layer behind an object-safe API trait with a byte-exact software mock context"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): `ldp-core` supplies
+# the buffer geometry algebra (FourCC/Modifier/plane math) and the Mono
+# clock type the sync model reasons in. `libc` provides dlopen/dlsym for
+# the runtime-loaded libdrm and libEGL layers — the transport/display
+# precedent: the canonical, audited Linux ABI binding. All unsafe lives
+# in the audited `sys` modules with SAFETY comments.
+ldp-core = { path = "../ldp-core" }
+# RealGles (Phase 24) implements the renderer crate's GLES API seam;
+# the wire-side types (SurfaceLayer and friends) stay on the renderer
+# side of the contract.
+ldp-renderer = { path = "../ldp-renderer" }
+libc = "0.2"
+
+[dev-dependencies]
+
+[lints]
+workspace = true

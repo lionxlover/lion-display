@@ -1,0 +1,26 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Coverage / fuzzing artifacts
+*.profraw
+fuzz/corpus/
+fuzz/artifacts/
+fuzz/target/
+
+# Packaging
+packaging/build/
+*.deb
+*.changes
+
+# Phase 20 packaging output
+dist/
+*.buildinfo

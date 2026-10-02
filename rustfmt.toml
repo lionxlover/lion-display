@@ -1,0 +1,9 @@
+# LDP formatting policy.
+# Stable-channel options only: CI runs `cargo fmt --check` on stable Rust,
+# and unstable rustfmt keys would emit warnings there. Nightly-only niceties
+# (comment wrapping, import granularity) are intentionally not pinned.
+
+edition = "2021"
+max_width = 100
+use_small_heuristics = "Default"
+newline_style = "Unix"

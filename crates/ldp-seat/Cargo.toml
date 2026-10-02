@@ -1,0 +1,24 @@
+[package]
+name = "ldp-seat"
+description = "LDP seat layer: seats, device assignment, per-seat focus stacks, grabs, and routing of normalized input events to protocol events"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the seat layer is
+# pure routing/policy logic over the foundation types (ldp-core geometry
+# and time), the normalized input vocabulary (ldp-input), and the wire
+# schema (ldp-protocol: the registry the golden corpus encodes events
+# against). It reads no clock and opens no devices.
+ldp-core = { path = "../ldp-core" }
+ldp-input = { path = "../ldp-input" }
+ldp-protocol = { path = "../ldp-protocol" }
+
+[lints]
+workspace = true

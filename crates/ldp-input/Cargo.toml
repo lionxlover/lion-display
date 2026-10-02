@@ -1,0 +1,25 @@
+[package]
+name = "ldp-input"
+description = "LDP input backend: evdev codec, device model with multitouch slots, axis normalizer, pointer acceleration, touchpad gesture machines, key repeat, xkbcommon keymaps (dlopen)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): `ldp-core` supplies
+# the timing doctrine (Mono — no code in this crate reads a clock; every
+# timestamp is device-supplied or injected by tests) and the geometry
+# types (PointF for subpixel input coordinates). `libc` provides the
+# dlopen/dlsym pair for the runtime-loaded libxkbcommon keymap layer and
+# the evdev probe ioctls — the audited `sys` boundaries, the
+# `ldp-transport`/`ldp-display` precedent.
+ldp-core = { path = "../ldp-core" }
+libc = "0.2"
+
+[lints]
+workspace = true

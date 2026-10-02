@@ -1,0 +1,23 @@
+[package]
+name = "ldp-fuzz"
+description = "Deterministic seed-addressed fuzzers for LDP: wire codec, transport framing, server dispatch, and the X11/Wayland bridge codecs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+ldp-core = { path = "../crates/ldp-core" }
+ldp-protocol = { path = "../crates/ldp-protocol" }
+ldp-transport = { path = "../crates/ldp-transport" }
+ldp-server = { path = "../crates/ldp-server" }
+ldp-x11-bridge = { path = "../crates/ldp-x11-bridge" }
+ldp-wayland-bridge = { path = "../crates/ldp-wayland-bridge" }
+ldp-test = { path = "../crates/ldp-test" }
+
+[lints]
+workspace = true

@@ -1,0 +1,200 @@
+# LDP security module — capability acquisition, tokens, audit.
+#
+# Layered policy: manifest baseline (verified by the session broker before
+# connect) + runtime escalation prompts for the most sensitive scopes.
+# Enforcement is deny-by-default; every decision is audited. Tokens are
+# 256-bit random values (8 x uint32), scope-bounded, expiring, revocable.
+
+[module]
+name = "ldp.security"
+version_min = 1
+version_max = 1
+doc = """
+Capability security: scope discovery, runtime escalation requests, token
+submission, and the audit stream. See docs/threat-model.md for the full
+adversary model and permission matrix.
+"""
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "scope"
+doc = "One privilege scope. The numeric values are stable wire ABI."
+[enum.values]
+screenshot = 1        # capture a single window's pixels
+screen_record = 2     # capture the screen over time
+input_inject = 3      # synthesize input events
+global_shortcut = 4   # register system-wide shortcuts
+clipboard_read = 5    # read clipboard / primary selection
+input_grab = 6        # global input grab (beyond transient popup grabs)
+configure_display = 7 # display layout, modes, VRR, HDR policy
+manage_workspaces = 8 # move/focus foreign windows, space management
+a11y_control = 9      # drive accessibility services (screen readers)
+audit_read = 10       # subscribe to the audit stream
+bridge = 11           # compat bridge ambient authority
+protected_surface = 12 # render into protected (HDCP-class) content
+
+[[enum]]
+name = "denied_reason"
+doc = "Why an escalation request or token submission was denied."
+[enum.values]
+manifest_missing = 1
+user_denied = 2
+expired = 3
+invalid_token = 4
+rate_limited = 5
+
+[[enum]]
+name = "audit_action"
+doc = "The action recorded in one audit event."
+[enum.values]
+grant = 1
+deny = 2
+revoke = 3
+capture = 4
+inject = 5
+bridge = 6
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "scopes"
+doc = "A set of scopes. Bit indices mirror the `scope` enum values minus one."
+[bitset.bits]
+screenshot = 0
+screen_record = 1
+input_inject = 2
+global_shortcut = 3
+clipboard_read = 4
+input_grab = 5
+configure_display = 6
+manage_workspaces = 7
+a11y_control = 8
+audit_read = 9
+bridge = 10
+protected_surface = 11
+
+[[bitset]]
+name = "audit_filter"
+doc = "Which audit record classes a subscription receives."
+[bitset.bits]
+grants = 0
+denials = 1
+revocations = 2
+captures = 3
+injections = 4
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "security"
+global = true
+doc = """
+Client-facing capability interface: discover effective scopes, request
+escalation (brokered user prompt), and submit tokens received from the
+broker out-of-band (e.g. from a portal).
+"""
+
+[[interface.request]]
+name = "capabilities"
+doc = "Query the effective scope set of this connection."
+reply = "capabilities"
+args = []
+
+[[interface.request]]
+name = "request"
+doc = """
+Ask the broker for an escalation of `scope`. The broker verifies the
+manifest baseline first, then (for prompt-class scopes) shows a user prompt.
+Result arrives as `grant` (with token) or `deny`. Rate-limited; abuse is
+audited.
+"""
+args = [
+  { name = "scope", type = "enum", of = "scope" },
+  { name = "reason", type = "string", doc = "Human-readable justification shown in the prompt." },
+]
+
+[[interface.request]]
+name = "submit_token"
+doc = "Submit a broker-signed 256-bit token (8 words). Valid tokens expand the effective scopes; invalid or expired tokens are denied and audited."
+args = [
+  { name = "token", type = "array", of = "uint32", doc = "Exactly 8 elements." },
+]
+
+[[interface.event]]
+name = "capabilities"
+doc = "The effective scope set (manifest baseline + accepted tokens)."
+args = [
+  { name = "scopes", type = "bitset", of = "scopes" },
+]
+
+[[interface.event]]
+name = "grant"
+doc = "Escalation granted: the token to submit (and keep for re-submission after reconnect). `expires` 0 = session-bound."
+args = [
+  { name = "scope", type = "enum", of = "scope" },
+  { name = "token", type = "array", of = "uint32", doc = "8-element 256-bit token." },
+  { name = "expires", type = "ts" },
+]
+
+[[interface.event]]
+name = "deny"
+doc = "Escalation or token denied."
+args = [
+  { name = "scope", type = "enum", of = "scope" },
+  { name = "reason", type = "enum", of = "denied_reason" },
+]
+
+[[interface.event]]
+name = "revoked"
+doc = "A previously held scope was revoked (settings, broker policy). In-flight requests under it will fail with `unauthorized`."
+args = [
+  { name = "scope", type = "enum", of = "scope" },
+]
+
+[[interface]]
+name = "audit"
+global = true
+doc = """
+The audit stream reader (scope-gated: `audit_read`). Records are
+hash-chained; `verify` checks the chain integrity over the retained window.
+"""
+
+[[interface.request]]
+name = "subscribe"
+doc = "Start receiving audit records matching `filter`."
+args = [
+  { name = "filter", type = "bitset", of = "audit_filter" },
+]
+
+[[interface.request]]
+name = "verify"
+doc = "Verify the hash chain over the server's retained audit window."
+reply = "chain"
+args = []
+
+[[interface.event]]
+name = "record"
+doc = "One audit record. `client` is the connection identity from `welcome`."
+args = [
+  { name = "ts", type = "ts" },
+  { name = "client", type = "uint32" },
+  { name = "app_id", type = "string" },
+  { name = "scope", type = "enum", of = "scope" },
+  { name = "action", type = "enum", of = "audit_action" },
+  { name = "detail", type = "string", doc = "Structured detail (JSON object as string)." },
+]
+
+[[interface.event]]
+name = "chain"
+doc = "Result of a `verify` request."
+args = [
+  { name = "ok", type = "bool" },
+  { name = "records", type = "uint64", doc = "Number of records covered by the verified window." },
+]

@@ -1,0 +1,24 @@
+[package]
+name = "ldp-compositor"
+description = "LDP compositor core: surface tree, damage engine, deadline frame scheduler with presentation feedback, coalescing, replay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the compositor core
+# is pure scene/damage/scheduling logic over the shared foundation types —
+# geometry, region algebra, transforms, scale, color descriptions,
+# presentation timing and modes all live in ldp-core. It deliberately does
+# NOT depend on ldp-protocol (wire) or ldp-server (sessions), and it never
+# reads a clock: the scheduler is a state machine over timestamped inputs,
+# which is what makes its decisions replayable.
+ldp-core = { path = "../ldp-core" }
+
+[lints]
+workspace = true

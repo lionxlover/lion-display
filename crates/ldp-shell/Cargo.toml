@@ -1,0 +1,24 @@
+[package]
+name = "ldp-shell"
+description = "LDP shell layer: toplevel/popup/dialog state machines, configure/ack two-phase commit, SSD geometry, spaces, stacking and focus policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the shell layer is
+# pure window-management policy over the foundation types (ldp-core
+# geometry/scale/ids/errors) and the wire schema (ldp-protocol: the
+# registry the conformance corpus encodes events against). It reads no
+# clock, opens no devices, and performs no I/O; the server binary is the
+# integrator that maps shell policy onto the compositor's scene graph.
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+
+[lints]
+workspace = true

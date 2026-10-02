@@ -1,0 +1,23 @@
+[package]
+name = "ldp-hdr"
+description = "LDP HDR policy: HDR10 static-metadata validation and normalization, the CTA-861.3 HDMI HDR Static Metadata InfoFrame codec, luminance adaptation (SDR-in-HDR canvas level, HLG system gamma per BT.2100), and the output-mode policy engine with hysteresis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): HDR policy builds
+# on the wire vocabulary (Luminance/HdrMetadata/ColorDescription) from
+# ldp-core and the canonical color math (PQ reference, transfer curves,
+# tone mapping) from ldp-color. No external dependencies; pure
+# deterministic policy and byte-level encoding.
+ldp-core = { path = "../ldp-core" }
+ldp-color = { path = "../ldp-color" }
+
+[lints]
+workspace = true

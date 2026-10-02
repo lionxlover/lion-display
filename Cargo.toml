@@ -1,0 +1,69 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "tools/*", "binaries/*", "examples/*", "fuzz", "tests"]
+
+# Crates are added per phase (docs/roadmap.md). Phase 1 shipped ldp-core;
+# Phase 2 adds tools/ldpc (protocol compiler) and crates/ldp-protocol
+# (wire codec). Phase 10 adds binaries/lion-compositor (the vertical
+# slice). The globs pick up future crates automatically as they land.
+
+[workspace.package]
+version = "0.19.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/lionos/lion-display"
+homepage = "https://lionos.example"
+keywords = ["display", "compositor", "protocol", "gui", "lionos"]
+categories = ["gui", "os::linux-apis"]
+
+[workspace.lints.rust]
+missing_docs = "warn"
+rust_2018_idioms = "warn"
+unused_qualifications = "warn"
+# Safety policy: unsafe code requires an explicit `unsafe` block with SAFETY docs.
+# Per-crate opt-outs are NOT permitted for the forbid-listed crates (see CONTRIBUTING).
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Explicitly relaxed: the codebase prefers exhaustive, self-documenting enums.
+module_name_repetitions = "allow"
+# Allow (and encourage) long, precise doc lines in protocol tables.
+doc_markdown = "allow"
+# Geometry and wire math perform deliberate width changes on values that are
+# bounds-checked by construction (validation suites cover every cast site's
+# range contract). Blanket From-conversions would obscure the width intent.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+# Protocol plumbing is pure by convention; #[must_use] is applied selectively
+# on state-critical builders rather than blanket-tagging every getter.
+must_use_candidate = "allow"
+# Exact float comparisons appear only in unit tests against parsed literals.
+float_cmp = "allow"
+# Geometric corner-bound vocabulary (dx0/dy0/dx1/dy1, sx0/sy1,
+# cx0/cy0, twf/thf) is deliberate rasterizer style — paired axes at
+# paired bounds, the same letter carrying the same meaning down the
+# pipeline. The similar-names heuristic (tightened in the 1.89
+# toolchain this release builds on) flags exactly that vocabulary;
+# renaming the corners to appease it would cost more reading than
+# any collision it could prevent. Relaxed workspace-wide,
+# deliberately.
+similar_names = "allow"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"   # a display server never unwinds across unsafe boundaries
+
+[profile.release-debug]
+inherits = "release"
+debug = true      # for profiling with ldp-profiler

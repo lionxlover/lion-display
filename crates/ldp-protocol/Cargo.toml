@@ -1,0 +1,26 @@
+[package]
+name = "ldp-protocol"
+description = "LDP wire codec: message framing, tagged argument encoding, and schema tables compiled from spec/"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the codec is part of
+# every client and server; it stays zero-dependency beyond ldp-core, which
+# is itself zero-dependency. No serde, no bitflags — the codec is
+# hand-rolled and deterministic by design.
+ldp-core = { path = "../ldp-core" }
+
+[dev-dependencies]
+# Drift gate (roadmap Phase 2 EC): tests recompile spec/ with ldpc and
+# byte-compare the committed generated output. Tooling-only dependency.
+ldpc = { path = "../../tools/ldpc" }
+
+[lints]
+workspace = true

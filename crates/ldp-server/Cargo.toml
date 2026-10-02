@@ -1,0 +1,32 @@
+[package]
+name = "ldp-server"
+description = "LDP server core: accept loop, per-client sessions, generational object store, typed dispatch, error emission, resource ceilings, crash reclamation, audit hooks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the server core is
+# std-only beyond the LDP layer stack. `ldp-core` carries ids/limits/errors,
+# `ldp-protocol` the codec and schema tables, `ldp-transport` the AF_UNIX
+# framing with SCM_RIGHTS. Threading is `std::thread` (one session thread
+# per connection in this phase); the Phase 6 compositor main loop will
+# embed `ClientSession` directly under `epoll` instead.
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+ldp-transport = { path = "../ldp-transport" }
+
+[dev-dependencies]
+# The kill-9 crash reclamation test drives a real child process that dies
+# with a half-written frame; python3 is already a hard CI requirement
+# (scripts/spec_lint.py) and keeps the child script dependency-free.
+# `libc` is used by tests only for an odd ioctl-free RST close variant.
+libc = "0.2"
+
+[lints]
+workspace = true

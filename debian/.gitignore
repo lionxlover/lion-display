@@ -1,0 +1,4 @@
+# packaging build residue (staged by debian/rules)
+/lion-compositor/
+/ldp-tools/
+/files

@@ -1,0 +1,23 @@
+[package]
+name = "ldp-integration"
+description = "The Phase 19 cross-crate integration gates: the 32-client mixed-workload stress gate, the crash-reclamation corpus, and the hotplug simulation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+ldp-core = { path = "../crates/ldp-core" }
+ldp-protocol = { path = "../crates/ldp-protocol" }
+ldp-transport = { path = "../crates/ldp-transport" }
+ldp-client = { path = "../crates/ldp-client" }
+ldp-display = { path = "../crates/ldp-display" }
+ldp-test = { path = "../crates/ldp-test" }
+lion-compositor = { path = "../binaries/lion-compositor" }
+
+[lints]
+workspace = true

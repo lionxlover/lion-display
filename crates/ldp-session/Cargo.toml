@@ -1,0 +1,29 @@
+[package]
+name = "ldp-session"
+description = "LDP session layer: a minimal D-Bus wire codec and client, the logind session state machine, VT switching, lock-screen orchestration, and inhibitor cookies"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the session layer
+# speaks D-Bus through a transport seam (DbusTransport) — the codec and
+# state machines are pure; ldp-core provides Mono and the shared types.
+# No external D-Bus binding: the wire format is implemented here, the
+# same way ldp-input implements evdev from bytes. Zero external
+# dependencies, `#![forbid(unsafe_code)]` crate-wide.
+ldp-core = { path = "../ldp-core" }
+
+[dev-dependencies]
+# Conformance only: the inhibit-bit contract this crate's InhibitBits
+# shares with the power layer's idle machine (same wire bitset, two
+# independent definitions — the test pins their agreement).
+ldp-power = { path = "../ldp-power" }
+
+[lints]
+workspace = true

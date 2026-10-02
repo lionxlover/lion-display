@@ -1,0 +1,27 @@
+[package]
+name = "ldp-display"
+description = "LDP display backend: DRM/KMS atomic modesetting behind an object-safe device trait — connectors, CRTCs, planes, properties, blobs, atomic commits, VRR timelines, hotplug, backlight; ships a headless mock KMS device and a dlopen libdrm/libudev runtime layer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): `ldp-core` supplies the
+# timing types (Mono, RefreshInterval), the FourCC/Modifier/geometry algebra
+# and the limits. `libc` provides dlopen/dlsym for the runtime-loaded
+# libdrm/libudev layers (the transport's precedent: the canonical, audited
+# Linux ABI binding — hand-rolling the ELF loader would add reviewed unsafe,
+# not remove it). All unsafe lives in the audited `sys` modules with SAFETY
+# comments; every other module is `#![forbid(unsafe_code)]`.
+ldp-core = { path = "../ldp-core" }
+libc = "0.2"
+
+[dev-dependencies]
+
+[lints]
+workspace = true

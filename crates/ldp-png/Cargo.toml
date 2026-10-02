@@ -1,0 +1,21 @@
+[package]
+name = "ldp-png"
+description = "LDP PNG encoder: a zero-dependency, deterministic, allocation-steady PNG writer (adaptive filters + fixed-Huffman deflate) for frame dumps and screen capture"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): nothing at all.
+# The encoder is pure integer code over caller-provided buffers — no
+# libc, no unsafe (the ldp-core/ldp-renderer precedent), no clock, no
+# threads. Determinism doctrine: identical input bytes produce
+# bit-identical PNG output on every platform.
+
+[lints]
+workspace = true

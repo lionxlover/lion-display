@@ -1,0 +1,685 @@
+lion-display (0.19.0) unstable; urgency=medium
+
+  * Phase release v0.19.0 -- the focus and the view (Phase 51): the
+    states arm's follow-ons, part one. The frozen `activated`
+    state bit (index 3 since v1) rides real proposals through every
+    keyboard transition (the grace-parking state proposal -- a
+    focus move never punishes a client draining a drag's serials);
+    the promotion doctrine gives the keys to the frontmost window
+    when the holder leaves; shell.switch_workspace served (the
+    taskbar's line -- the machine was built, the wire had no
+    request) with workspace_switched's clamp-honest broadcast to
+    every binder, the visibility sweep (dialogs follow their
+    parents), the space-preferred focus, and the hidden spaces'
+    frame parking. One request + one event appended additively
+    (the freeze re-taken: 98 requests + 123 events, 37 enums).
+    2,241 tests, up from 2,236.
+
+ -- LionOS Display Team <display@lionos.example>  Fri, 02 Oct 2026 12:00:00 +0000
+
+lion-display (0.18.0) unstable; urgency=medium
+
+  * Phase release v0.18.0 -- the operator's hand (Phase 50): the
+    interactive move/resize vocabulary the spec never grew, served
+    whole. toplevel.start_move/start_resize appended additively
+    (the freeze re-taken: 97 requests + 122 events, 37 enums); the
+    move is server truth at the input pump's cadence (zero
+    configures, the 48-px keep band); the resize rides the real
+    two-phase commit (the resizing state on live proposals, the
+    position and the committed buffer realizing together, the final
+    proposal clearing the state, the grace window bounding
+    pointer-paced supersession honestly); dragging a maximized
+    window demotes it under the pointer's proportional grip.
+    2,236 tests, up from 2,218.
+
+ -- LionOS Display Team <display@lionos.example>  Thu, 02 Oct 2026 08:00:00 +0000
+
+lion-display (0.17.0) unstable; urgency=medium
+
+  * Phase release v0.17.0 -- the states arm (Phase 49): the frozen
+    17-request ldp.shell.toplevel vocabulary served whole, zero
+    wire surface moved:
+    - the geometry verbs: maximize fills the workspace area minus
+      the decoration insets, fullscreen covers the whole output
+      with the pin; the client acks and its next commit realizes
+      the placement (the restore point returns on the un-verb);
+      fullscreen precedes maximized
+    - the visibility verbs: minimize/set_workspace/set_sticky
+      applied immediately -- a hidden window renders nowhere, takes
+      no input, parks its frame requests (App Nap's seam), and
+      leaves its outputs over the wire; workspace_changed reports
+      the clamped actual; unminimize restores the exact bytes
+    - the machine-owned handshake: the initial configure is the
+      machine's first proposal under the seat's interaction clock
+      (the data family's serial, propose_at), the CSD insets
+      honest (the system hit zone), workspace_count at bind, the
+      strict ack_configure, --workspaces N (default 4)
+    - the hints land (bounded strings with their error codes,
+      saturating size pair); the death sweep (the object destroy
+      releases the role; the surface death leaves no residue)
+  * 2,218 tests green, the freeze gate untouched.
+
+ -- LionOS display team <display@lionos.example>  Fri, 02 Oct 2026 22:00:00 +0800
+
+lion-display (0.16.0) unstable; urgency=medium
+
+  * Phase release v0.16.0 -- the knock and the goodbye (Phase 48):
+    the dialog arm served (shell.get_dialog + the frozen
+    ldp.shell.dialog interface -- the machine's own serial clock,
+    the strict two-phase ack, the server-side centering at first
+    attach, the one-role rule enforced by name), the modal gate (a
+    mapped modal dialog gates its parent's whole tree: the routing
+    filter, the keyboard focus handoff, the modeless control), the
+    sheet-dies-with-window doctrine (the parent's death closes its
+    dialogs), and the window-close fade (the owned ghost: a
+    row-tight copy of the dying window's last raster at its own z
+    slot, the catalog's close spring, the vacated-rect removal
+    claims, the A/B byte oracle). Zero wire surface moved -- the
+    freeze gate untouched; 2,201 tests green.
+
+ -- LionOS display team <display@lionos.example>  Fri, 02 Oct 2026 20:00:00 +0800
+
+lion-display (0.15.0) unstable; urgency=medium
+
+  * Phase release v0.15.0 -- the semantic scene (Phase 47):
+    - semantic surfaces over the wire: toplevel.set_semantic_role /
+      set_security_class / set_scene_profile (appended after the
+      frozen opcodes, the freeze re-taken consciously)
+    - the security-aware capture: protected/system surfaces redact
+      out of client-visible frames while the display keeps showing
+      them; the lock role floors the class at protected
+    - the adaptive frame scheduler's per-surface budget floor
+      (gaming 1 ms, creative 4 ms, desktop the operator's own)
+    - the composition decision engine: CompositionPath + the
+      DecisionRecord's named cause (ldp-planes)
+    - the compositor-owned transitions catalog + the window-open
+      fade (--transitions), settling to byte-exact plain ink
+
+ -- LionOS display team <display@lionos.example>  Fri, 02 Oct 2026 12:00:00 +0800
+
+lion-display (0.14.0) unstable; urgency=medium
+
+  * Phase release v0.14.0 -- the foundry completes (Phase 46):
+    every timing family the VESA standards define, poured in exact
+    integer arithmetic, spec-faithful to the letter -- the family
+    grammar --synth WxH[@HZ][:family] adds rb2 (CVT reduced
+    blanking v2: the 80-pixel blank, the fixed 8-line sync,
+    1-pixel horizontal precision), rb2v (the 1000/1001
+    video-optimized rate, the 59.94 Hz class), cvt (standard CRT
+    blanking: the GTF duty-cycle machinery, Table 3-2's
+    aspect-mapped vertical sync), and gtf (the 1999 generalized
+    timing formula), each through the foundry's two honest gates
+    (the EDID ceiling, the engine's USERDEF commit validation).
+    Zero wire surface moved; 2,148 tests green.
+
+ -- lion-display release engineering <dev@null.invalid>  Thu, 02 Oct 2026 03:20:00 +0000
+
+lion-display (0.13.0) unstable; urgency=medium
+
+  * Phase release v0.13.0 -- the nap, the claim, and the rebuild
+    (Phase 45): occlusion quiescing (the App-Nap doctrine -- a
+    fully-occluded window's frame requests park, its live
+    registrations die with surface_hidden, the reveal answers at
+    the moment it can present), the per-surface material request
+    (toplevel.set_material over the wire, appended after the
+    frozen opcodes -- the freeze consciously re-taken, the
+    VibrantDark material's first call site), the session-rebuild
+    supervisor (lion-supervisor: the DWM doctrine -- crash ->
+    backoff -> same pinned socket, a reconnecting client presents
+    again; kill -9 proven over real processes), and the
+    touch/tablet axis-metadata coalescing (shape and orientation
+    as per-contact position state). Two release-archive glitches
+    fixed (ldp-audit's empty bin adapter; CARGO_BIN_EXE read at
+    runtime instead of the build-time contract). 2,126 tests, up
+    from 2,121.
+
+ -- LionOS <release@lionos.example>  Thu, 02 Oct 2026 12:00:00 +0800
+
+lion-display (0.12.0) unstable; urgency=medium
+
+  * Phase release v0.12.0 -- the quiet frame and the architecture
+    answer (Phase 44): the damage engine's steady-state economy,
+    A/B measured on the release rig -- the quiet 64-window damage
+    pass 94,720 -> 44,609 ns/op (-52.9%) and the one-moving-window
+    load 126,906 -> 77,199 (-39.2%) against the pristine v0.11.0
+    engine on identical input, via five guarded fast paths (the
+    below-unions materialized only at opaque-flip nodes instead of
+    one deep region clone per surface per frame; the R2 coverage
+    algebra gated on bounds change; the R3 flip algebra gated on
+    footprint change; the one-rect fully-visible check; the
+    pass-record clone skipped for quiescent unchanged surfaces,
+    with the damage-consumption and occlusion-relatch terms
+    load-bearing and pinned by three new regression tests). The
+    frame loop's delivery clones gone (repaint by move, the
+    entered set by take-and-reassemble). The fuzz gate's own soak
+    mode (LDP_FUZZ_SCALE=8) found and the release fixes a latent
+    harness panic: chunk_stream on a one-byte source (the
+    interior-cut draw against zero) plus the mutate_bytes
+    empty-source splice sibling; the gate now runs clean at 20x
+    scale. New documentation: docs/comparison-windows-macos.md,
+    the pipeline-depth architecture comparison against Windows'
+    DWM/WDDM stack and macOS' WindowServer/CoreAnimation stack --
+    ten stages, an honest ledger, a stage-verdict table. Two new
+    ldp-bench damage rows with the A/B committed. 2,121 tests, up
+    from 2,116; zero wire-surface change, the freeze gate green.
+
+ -- Super Z <dev@lion-display.example>  Wed, 01 Oct 2026 20:30:00 +0000
+
+lion-display (0.11.0) unstable; urgency=medium
+
+  * Phase release v0.11.0 -- the contact doctrine and the living
+    registry (Phase 43): the input-latency row's named remainder
+    (touch/tablet position-state coalescing, per-contact keys) is
+    served end-to-end (two fingers collapse to two motions, each its
+    own freshest sample; the tablet's per-tool axes are position
+    state of their own kind; the discrete barrier seals a contact's
+    own stream), and the protocol-design row's named future line
+    (dynamic globals) is served: the dark state withdraws the output
+    global (objects revoked before the zero-arg global_remove
+    barrier, the spec's own order) and the relight re-advertises it
+    (the schema's own version range), through a new default-no-op
+    Dispatcher::on_registry seam -- no wire surface change, the
+    frozen v1 snapshot untouched. Plus the hardening wave (the
+    subsurface depth cap; the cross-client pending-attach wipe fix;
+    saturating subsurface offset accumulation; the union-found
+    disjoint-rect merge replacing the O(n^3) restart loop; the
+    bounded accumulated-damage fold; the replay codec's untrusted-
+    count allocation guard; the ldp-client GlobalRemove decoder
+    drift fix to the spec's zero-arg shape) and the delivery-path
+    economy (the transport writer's amortized-O(1) unsent-front
+    cursor; the frame delivery by borrow; the allocation-stable
+    display model; branch-free plane blends).
+
+ -- Super Z <dev@lion-display.example>  Wed, 01 Oct 2026 18:00:00 +0000
+
+lion-display (0.10.9) unstable; urgency=medium
+
+  * Phase release v0.10.9 -- the mode foundry (Phase 42): the
+    display-size field's answer, 88 -> 90 (a tie with macOS and
+    Windows). "Every display size" made literal with arithmetic
+    instead of a quirk table: --synth WxH@HZ pours a VESA CVT
+    reduced-blanking timing for any size (integers-only, the 460 us
+    minimum vertical blanking solved exactly, the clock
+    ceil-targeted in integer kilohertz so the realized refresh is
+    never under the ask -- the canonical cvt -r 1920x1080 anchor's
+    2080x1111 totals reproduced bit-exactly), the pour riding the
+    wire as a user-defined mode (the kernel's own vocabulary,
+    validated by the display engine at commit against its declared
+    synthesis envelope) and adopted by the protocol face (the poured
+    mode joins the advertised list -- xrandr --addmode's story,
+    protocol-side). The EDID parse grows its timing half: the
+    detailed timing descriptors (the first is the preferred timing,
+    marked like the kernel marks it) and the monitor range limits
+    (the declared pixel-clock ceiling gating every pour -- the typed
+    refusal names it, never a silent clamp). The migration re-pours
+    on the next display and falls back past a refusing ceiling
+    honestly. The EDID audit diagnoses the connector's truth at
+    bring-up (a rotten block, a preferred-timing lie, a declared
+    ceiling the list exceeds) and the quirk table accrues the timing
+    trio -- edid-rotten, edid-preferred-lie, pixel-clock-ceiling --
+    eight rows tabled, each with its symptom, detection, escape, and
+    honest cost. 2,107 tests (was 2,084); five new session criteria
+    prove the pour end-to-end over the real socket.
+
+ -- Super Z <dev@lion-display.example>  Wed, 01 Oct 2026 12:00:00 +0000
+
+lion-display (0.10.8) unstable; urgency=medium
+
+  * Phase release v0.10.8 -- the quirk ledger (Phase 41): the VRR
+    field's answer. The honest floor (--vrr-floor N, per-output CSV:
+    panels whose advertised range flickers at the bottom get the
+    operator's truth clamped into every window consumer -- the
+    scheduler's widened deadline, the output.vrr advertisement, the
+    LFC cadence -- while the device's own claim stands untouched;
+    an unservable floor refuses boot naming the mistake), the LFC
+    cadence and the anti-flap latch (slow content bridges on
+    phase-aligned repeats, k = ceil(P/max), judder-free by
+    construction; the boundary flap rides warmed repeats), and the
+    mixed-desktop escape (--vrr-uniform: one fixed clock across the
+    seam for the platforms whose cross-CRTC coupling flickers the
+    fixed sibling; per-output VRR stays the default). The quirk
+    table at five rows. 2,084 tests green.
+
+ -- Z User <z@container>  Thu, 01 Oct 2026 12:00:00 +0000
+
+lion-display (0.10.7) unstable; urgency=medium
+
+  * Phase release v0.10.7 -- the deep material (Phase 40): the
+    visual-quality field's answer. The vibrant domain (the frost's
+    saturation dial extends past the backdrop's own chroma, 0..=510,
+    integer-exact -- the acrylic/vibrant distance), the edge light
+    (the luminous 1-px hairline traced inside every rounded
+    silhouette, drawn after the ink, memoized imagery like the
+    shadow), and the material family (Panel/Sheet/Menu/VibrantDark/
+    Chrome -- menus and popups in glass, the dock in chrome, the
+    legacy pair verbatim, Minimal plain). Byte-equal across the
+    software and GL backends by construction. 2,063 tests green.
+
+ -- Z User <z@container>  Thu, 01 Oct 2026 12:00:00 +0000
+
+lion-display (0.10.6) unstable; urgency=medium
+
+  * Phase release v0.10.6 -- the fresh frame (Phase 39): the
+    input-latency field's answer. Position-state coalescing in the
+    served emission path (the outbox becomes the class-aware queue
+    of section 10.4: a 1000 Hz pointer parks sixteen samples between
+    display frames and a frame-cadenced client reads one motion with
+    the freshest coordinates, every relative_motion delta intact,
+    the discrete barrier sealing the click's own sample) and the
+    VRR-aware presentation clock (the measured band is the panel's
+    own probed window; an adaptive surface targets the panel's next
+    refresh opportunity so the verdict fires at the flip that
+    carries its content and the pacing follows the content). 2,050
+    tests green.
+
+ -- Z User <z@container>  Thu, 01 Oct 2026 02:00:00 +0000
+
+lion-display (0.10.5) unstable; urgency=medium
+
+  * Phase release v0.10.5 -- the honest peak (Phase 38): the HDR
+    panel negotiation -- the effective peak (--hdr-peak caps the
+    advertisement), the negotiated canvas ceiling (the stack's
+    brightest content clamped to the panel), the per-surface
+    mastering refinement (the declared HDR10 bounds reach the ink
+    through the BT.2390-structured knee -- the system's rolloff
+    replaces the panel's hard clip), and the quirk table's first
+    accrued row (hdr-peak-bloat).
+
+ -- lion-display maintainers <maintainers@lion-display.invalid>  Thu, 01 Oct 2026 12:00:00 +0000
+
+lion-display (0.10.4) unstable; urgency=medium
+
+  * Phase release v0.10.4 -- one desktop, every arrangement (Phase 37):
+    the mirror doctrine (--outputs mirror: every display on the same
+    desktop, the per-pixel crop for mixed modes, the clone signal in
+    the overlapping origins), the per-output scale doctrine
+    (--scale F1,F2 with the stretch rule), the named-quirk table
+    (the mechanism with the two honest rows), and two bug fixes from
+    the seal run's own hunt (the origin-keyed canvas parking, the
+    hotplug scale reset).
+
+ -- lion-display maintainers <maintainers@lion-display.invalid>  Wed, 30 Sep 2026 12:00:00 +0000
+
+lion-display (0.10.3) unstable; urgency=medium
+
+  * Phase release v0.10.3 -- the rootless door (Phase 36): every
+    top-level X11 window rides its own LDP surface (the rootless
+    driver, the subtree composite, the two-truth coordinate
+    doctrine, --x11-rootful as the whole-screen escape), the popup
+    role served end to end (get_popup's anchor/gravity machine,
+    solve at attach, the parent-death sweep), the quiescent
+    keepalive, and three bug fixes from the seal run's own hunt
+    (the pointer enter coordinates, the parked spontaneous output,
+    the mirror re-zero).
+
+ -- lion-display maintainers <maintainers@lion-display.invalid>  Wed, 30 Sep 2026 04:00:00 +0000
+
+lion-display (0.10.2) unstable; urgency=medium
+
+  * Phase release v0.10.2 -- the sleeping panel (Phase 35): panel
+    self-refresh (the engage/release vocabulary, the frozen timeline,
+    the one-nominal rescan), the GPU clock governor, the energy
+    ledger, the serve-loop idle-ladder fix, and --no-psr.
+
+ -- lion-display maintainers <maintainers@lion-display.invalid>  Wed, 30 Sep 2026 02:00:00 +0000
+
+lion-display (0.10.1) unstable; urgency=medium
+
+  * Phase release v0.10.1 -- the hardware compositing path (Phase 34)
+    plus the evdev input path (Phase 33, landed post-v0.10.0 and
+    changelogged here). The plane-assignment engine (ldp-planes, the
+    26th crate) maps the layer stack onto the display hardware's own
+    blend order: the zero-composite frame (a fullscreen opaque
+    client's own framebuffer on the panel, the renderer emitting no
+    pass at all), the underlay split (canvas on the primary, windows
+    on overlays above), a named demotion per composite layer (the
+    no-silent-degrade rule applied to hardware offload), and the
+    import walk that turns client buffers into kernel framebuffers
+    (drmPrimeFDToHandle + AddFB2WithModifiers behind the KmsBackend
+    seam). YUV and scaled GL uploads land byte-equal to the software
+    path; dma-buf feedback tranches resolve the allocation advice;
+    the display-model oracle keeps every pixel test meaningful
+    across all three frame shapes; retired overlays turn off every
+    frame (the mock's modeset detector corrected to the kernel's
+    plane-disable rule). The evdev input path serves the machine's
+    real /dev/input devices through the seat router onto the wire.
+    1,944 tests, all green.
+
+ -- The LionOS display team <lionos@example>  Wed, 30 Sep 2026 08:00:00 +0000
+
+lion-display (0.10.0) unstable; urgency=medium
+
+  * Milestone release v0.10.0 -- the served stack (Phases 31+32):
+    several displays at once, the fractional-scale truth, the HDR
+    pipeline, adaptive sync, the idle ladder, the frozen v1 API
+    contract, and the clipboard over the real wire. The multi-output
+    doctrine (--outputs multi) serves every pipeline the allocator
+    finds -- one logical desktop, per-output visibility, topology
+    motion mid-session, spanning release gates; --scale F advertises
+    the real factor and re-resolves the shell on the logical canvas;
+    --hdr wires the PQ pipeline with the mode controller's
+    hysteresis; --vrr arms VRR_ENABLED on every capable output's
+    flips; --idle MS runs the DPMS blanking ladder. The API stability
+    freeze gate (ldpc snapshot --check) pins the v1 surface
+    byte-for-byte. The data family is served end to end: devices,
+    sources, offers as real receiver-held objects (the store's new
+    insert_server_at path), selection publication, accept/receive
+    through real pipes byte-exact, and honest teardown. The shell's
+    initial configure was a wire violation (4 of 10 arguments) --
+    fixed, found by the first end-to-end shell client.
+  * The compatibility door lands in-tree: lion-bridge ships in the
+    lion-compositor package (Wayland clients -> LDP windows
+    one-for-one, an X11 screen -> one rootful LDP window, every
+    foreign session behind its own LDP identity and a bridge-scope
+    token; foreign pixels reach the compositor's scanout, proven by
+    the bridge session suites). The GL renderer gains the zero-copy
+    EGLImage arm (imported layers never touch a CPU payload) and
+    the command-stream goldens pin exactly what the real GPU
+    executes.
+  * Release discipline 0.9.0 -> 0.10.0: workspace + lock + debian
+    changelog + README milestone + CHANGELOG 0.10.0 + the showcase
+    scene mark, checked by scripts/version_check.py in verify.sh.
+
+ -- lion-display maintainers <maintainers@lionos.example>  Mon, 29 Sep 2026 12:00:00 +0530
+
+lion-display (0.9.0) unstable; urgency=medium
+
+  * Milestone release v0.9.0 -- the desktop matrix (Phase 30): every
+    display size, every graphics card, and the machines with none.
+    GPU-class capability probing joins the renderer selection: the
+    EGL+GLES probe now reads the context's identity (glGetString
+    vendor/renderer/version, a core GLES 2.0 read) and classifies it
+    -- discrete, integrated, virtual, software rasterizer, unknown --
+    as pure table-driven logic, exhaustively unit-pinned. The
+    doctrine: Auto refuses a CPU-rasterizer GL context (llvmpipe,
+    swrast, softpipe, SwiftShader -- the no-graphics-card machine or
+    the failed-driver fallback) in favor of the specialized software
+    backend, with the reason in the one-line startup report; --renderer
+    gl still forces the GL path over any context (the operator is the
+    final authority); an unrecognized GPU classifies as Unknown and
+    counts as hardware -- never a silent degrade. The startup line
+    names the device: "renderer: gles (hardware: EGL + GLES 2.0
+    context up, discrete GPU: AMD Radeon ...)".
+  * The sized output doctrine (--resolution WxH): the bring-up and
+    every hotplug migration prefer a mode of exactly the forced size
+    (preferred flag, then the highest refresh among matches); a size
+    no connected connector offers is the typed startup failure
+    listing every size the panel does offer (the operator's menu --
+    never a silent nearest-neighbor guess); a migration to a display
+    without the size falls back to the unsized doctrine and the world
+    keeps the operator's preference for the next display that offers
+    it. OutputGlobal::select_size re-points the protocol face (the
+    current_mode flag, the geometry, the renderer's output
+    description) at the forced mode; Mode::panel_4k60 joins the
+    fixtures (594 MHz over 4400x2250 -- exactly 60.000 Hz).
+  * The desktop matrix benchmark suite (the permanent ldp-bench
+    rows): the Liquid desktop frame -- wallpaper, four rounded and
+    shadowed windows in the quadrants, one frosted dock bar -- at
+    1920x1080, 2560x1440, 3440x1440 (the 21:9 ultrawide), and
+    3840x2160, at the High tier and at the tier the no-GPU doctrine
+    picks for each size, steady state and (at the two ends) the cold
+    first frame. Measured (5-run medians): High steady 7.31 / 11.49 /
+    15.11 / 24.67 ms across the four sizes -- 60 Hz holds at High
+    through the ultrawide; the doctrine's tier 5.96 / 7.95 / 10.96 /
+    18.99 ms. The first run caught a real regression: the 4K High
+    steady state measured 194 ms because the shadow memo's fixed
+    6 Mi-word budget sat under a 4K desktop's working set (~6.5 Mi
+    words) and the LRU evicted and rebuilt every material every
+    frame; the budget now scales with the output (twice its pixels,
+    floored at the phone era's 6 Mi so Phase 29 behavior is
+    byte-exact) and 4K High dropped to 24.67 ms (7.9x, same bytes),
+    pinned by the flat-rebuild-counter oracle.
+  * docs/comparison.md: the honest field-by-field comparison against
+    Wayland, X11/Xorg, macOS WindowServer, and Windows DWM -- twenty
+    fields scored out of 100 with the reasoning attached, the
+    measured spine (the desktop matrix, the phone frame, the 19 MiB
+    peak-RSS bring-up), and every gap named with its roadmap line.
+  * Tests (+25 new tests, 1,839 total as the gate measures on this rig): the classification table (every
+    known renderer string, the software-wins-over-everything rule,
+    the honest Unknown default); the identity summary and truncation;
+    the mode-size parsing and rejection; the sized selection (the
+    best exact match, the offered-menu failure, the no-display arm);
+    the class-aware policy matrix (Auto+llvmpipe refused with the
+    reason, forced-GL-over-llvmpipe honored, unknown/virtual stay
+    hardware); resolution_session.rs -- the end-to-end exit
+    criterion: the forced size that is offered serves it (the world,
+    the flagged current mode, the scanout pixels), the honest miss
+    fails with the menu, the migration honors the forced size and
+    falls back honestly without dying; the budget-scaling semantics
+    (the floor default, raise-never-lower, the miss/hit build
+    counter) and the 4K thrash oracles (the flat
+    shadow-rebuilds counter across a 4K desktop's steady frames;
+    the scaled budget keeping a large working set resident where
+    the floor evicts).
+  * Release discipline 0.8.0 -> 0.9.0: workspace + lock + debian
+    changelog/control + README (status/matrix/docs links/Phase 30
+    bullet) + CHANGELOG 0.9.0 + roadmap (Phase 30 section, milestone
+    v0.9.0) + maturity (v0.9.0, row 30) + benchmarks.md (the desktop
+    matrix rows) + user-guide 3.10 (the desktop operator's section)
+    + admin-guide + packaging README.
+
+ -- LionOS Display Team <display@lionos.example>  Mon, 29 Sep 2026 09:30:00 +0530
+
+lion-display (0.8.0) unstable; urgency=medium
+
+  * Milestone release v0.8.0 -- the steady-state pass (Phase 29):
+    the Liquid visual engine at 60 Hz on a weak CPU. The phone-frame
+    benchmark (a 1080x2340 output, a plain wallpaper, four rounded
+    and shadowed app cards, one frosted translucent panel, full
+    damage every frame) measured 178.6 ms per frame at Phase 28 --
+    5.6 fps; it now measures 8.70 ms steady state (20.5x) and
+    64.8 ms first frame (2.75x), same machine, byte-identical
+    output. The wins: shadows memoized as imagery (built once per
+    unique params/geometry, LRU-bounded, honest over-budget
+    recompute), frost memoized on the backdrop's own words (a full
+    comparison, no hashing -- rebuilt only when what sits beneath
+    actually changed), the corner-arc SDF band-limited to the arcs
+    (pixel centers sit exactly half a pixel from every straight
+    edge, so only the arcs ever produce fractional coverage -- 99.6%
+    of a phone window's pixels never pay the sqrt again), the box
+    blur rebuilt (edge-free interior loops, 16-column strip walk for
+    cache-line-friendly vertical passes, an exact 48-bit reciprocal
+    multiply for the window mean -- exhaustively proven equal to the
+    division), word-level snapshot and material application, the
+    copy path broadened to same-family formats (an XRGB window over
+    an ARGB output word-copies), and the GL backend's frost readback
+    and shadow textures served from the same memos with one retained
+    readback buffer. Every equivalence is pinned by new oracle
+    suites (the Phase 27 kernels restated verbatim as references and
+    cross-checked over randomized shapes, including the degenerate
+    capsule radii and the overlapping corner bands the corpus
+    caught), and the steady-state transparency oracle: a warm
+    renderer's frames stay byte- and stat-identical to a cold
+    render's.
+
+ -- The Lion Display project <lion-display@example.invalid>  Mon, 29 Sep 2026 20:00:00 +0530
+
+lion-display (0.7.0) unstable; urgency=medium
+
+  * Milestone release v0.7.0 -- the positioning shell (Phase 28):
+    where the system puts windows, and the dock it keeps for itself.
+    The pure placement engine (ldp-shell::layout): the output's shape
+    picks the doctrine -- a portrait output is a phone (every app
+    anchors at the usable origin, above the dock; overflow runs under
+    it, occluded never destroyed -- the iOS keyboard doctrine), a
+    landscape output is a desktop (the classic cascade, caught at the
+    usable edge). Placement rides a root's first attach -- the
+    position applies with the very commit that maps the surface, so a
+    window lands placed, never origin-then-jump -- and live output
+    re-arrangements re-place every mapped root immediately (a new
+    screen starts a fresh layout, the migration frame itself carries
+    the move). The system dock: the phone's home bar -- a frosted bar
+    the compositor itself owns (haze plus a row of app pills, ARGB
+    ink at a stable identity), rendered above every client layer with
+    Phase 27's material language (the frost snapshots the composed
+    backdrop, the corner coverage folds at upload -- zero growth of
+    the render seam), reserving its thickness out of the usable area,
+    and rising from below the edge on a critically damped spring that
+    integrates at render cadence from the driver's timestamps
+    (bit-reproducible motion; a quiescent compositor holds its last
+    integrated offset). The direct-scanout candidacy stays honest
+    under chrome (the dock's rect subtracts from the overlay set).
+    The doctrine switches: --dock auto|off (CLI default auto; the
+    library default stays off so every Phase 26/27 pixel oracle keeps
+    byte-exact -- the same contract as the effects tier), the honest
+    third startup line ("phone layout, dock 84 px at the bottom"),
+    --dock-thickness. 35 new tests (1,804 total): the layout engine
+    suite (the carve, the cascade, the clamp, the degenerate outputs),
+    the immediate-position damage rule, the shell module suite (the
+    ink, the rise's monotone settle, the vacate rule), and the
+    end-to-end shell session -- the desktop cascade pixel-exact
+    against hand-derived reference math with the frosted dock's haze
+    and pills, the phone re-anchor on a portrait swap (the whole
+    doctrine re-resolving mid-session), the legacy regression gate,
+    the Minimal plain dock, and the whole shell session byte-equal
+    under the injected reference GL backend.
+
+ -- LionOS Display Team <team@lionos.dev>  Mon, 29 Sep 2026 10:00:00 +0530
+
+lion-display (0.6.0) unstable; urgency=medium
+
+  * Milestone release v0.6.0 -- the Liquid visual engine (Phase 27):
+    the macOS-class material language on Linux, built for low-end
+    devices. Three effects make the vocabulary -- antialiased rounded
+    corners (an IEEE-exact SDF coverage), soft shadows (a blurred,
+    ink-holed silhouette), and frosted translucency (the backdrop
+    blurred, desaturated and veiled behind a glass pane) -- all pure
+    integer-deterministic kernels shared by the software renderer and
+    the GL path, so styled frames are byte-equal across backends (the
+    layer-major Liquid GL stream, the upload-time coverage fold, the
+    readback frost). The low-end doctrine ships with it: four quality
+    tiers (minimal / low / medium / high) resolve from the machine
+    through --effects auto -- a GL renderer serves the full 3-pass
+    blur, a software renderer scales to the output's pixel budget, a
+    tint veil keeps the identity where blur would stutter. The spring
+    engine adds the motion vocabulary: critically-damped, fixed-substep
+    integration, bit-reproducible -- the macOS feel. Also fixed: the
+    GL stream's latent overlapping-damage double-composite (disjoint
+    rect normalization in the damage clip).
+
+ -- LionOS Display Team <dev@lionos.example>  Mon, 28 Sep 2026 00:00:00 +0000
+
+lion-display (0.5.0) unstable; urgency=medium
+
+  * Milestone release v0.5.0 — live output re-arrangement (Phase 26):
+    the serving compositor follows the display topology. When a
+    hotplug event arrives, the serve loop re-probes the whole
+    topology and moves the served pipeline: a monitor swap migrates
+    the live pipeline (applied disable, framebuffers released and
+    dumb buffers destroyed, a fresh scanout chain allocated, the
+    applied enable, the bring-up flip latching the scheduler's
+    re-anchored timeline, a full-scene re-render) so the desktop
+    survives the swap with every client session intact; the last
+    display going away is the honest dark state (pipeline disabled,
+    every kernel object released, pending buffer fences flushed,
+    frame requests parked with output_off, the protocol still
+    serving); the first re-plug relights and the waiting desktop
+    paints again. Clients feel the transitions through their output
+    objects: revoked (capability_revoked) through the outbox
+    wake-point delivery, re-bind for the fresh cascade. A sink
+    re-negotiating its mode list (same connector, different modes)
+    migrates too -- the pipeline comparison decides, not the status
+    diff. Grabs on a dark compositor answer failed(no_output), the
+    capture_error vocabulary's second value (spec/capture.toml
+    growth through the full ldpc pipeline). 1,727 tests green.
+
+ -- LionOS Project <dev@lionos.example>  Tue, 29 Sep 2026 00:15:00 +0000
+
+lion-display (0.4.0) unstable; urgency=medium
+
+  * Milestone release v0.4.0 — the real-KMS serve loop (Phase 25):
+    lion-compositor --mode drm now serves for real on hardware --
+    DRM-Master takeover, kernel dumb buffers mapped for CPU
+    composition (DRM_IOCTL_MODE_MAP_DUMB, pitch-honoring row
+    delivery), the applied atomic enable commit, and the poll loop
+    (LDP clients on the abstract socket, page flips and topology
+    events on the DRM fd); Ctrl-C tears the pipeline down honestly
+    (disable commit, framebuffers released, dumb buffers destroyed,
+    master dropped). The serve choreography is backend-independent
+    over the new DisplayDriver seam and CI-proven on the mock device
+    (applied enable/disable state assertions, the mapped-store
+    equivalence suite: the real mmap delivery path byte-equal to the
+    shadow oracle through full client sessions), --probe keeps the
+    zero-risk TEST_ONLY rehearsal, and --mode drm fails typed and
+    loud on machines without DRM nodes (never a silent headless
+    fallback). 1,715 tests green.
+
+ -- LionOS Project <dev@lionos.example>  Mon, 28 Sep 2026 23:30:00 +0000
+
+lion-display (0.3.0) unstable; urgency=medium
+
+  * Milestone release v0.3.0 — hardware acceleration by default (the
+    macOS doctrine): GPU compositing through a real EGL+GLES 2.0
+    backend whenever the machine has a GL stack, software fallback
+    with the reason carried in the startup report (--renderer
+    auto|gl|software, default auto; the whole render pipeline --
+    window-management redraws, animation frames, damage repaints,
+    capture -- flows through the selected backend, proven
+    byte-equal to the reference path through the entire client
+    session), plus a real-hardware DRM scanout rehearsal in --mode
+    drm (drmSetMaster, dumb scanout buffers, framebuffers, and a
+    TEST_ONLY atomic enable commit validated by the kernel, then
+    unwound and reported). 1,696 tests green.
+
+ -- LionOS Project <dev@lionos.example>  Mon, 28 Sep 2026 22:00:00 +0000
+
+lion-display (0.2.0) unstable; urgency=medium
+
+  * Milestone release v0.2.0 — the post-v0.1.0 growth consolidated:
+    remote transport (ldp-remote: edge + hub gateways, the
+    authenticated TCP relay with keepalive and the FD vocabulary;
+    pixel-exact over the wire), the ldp.capture protocol module +
+    the ldp-grab tool + the deterministic zero-dependency ldp-png
+    encoder, and the renderer performance tier (7.4x opaque
+    word-copy, per-frame damage row index). Release coherence: one
+    version across the workspace, --version on every shipped binary,
+    and the version_check gate in verify.sh. 1,672 tests green.
+
+ -- LionOS Project <dev@lionos.example>  Mon, 28 Sep 2026 18:00:00 +0000
+
+lion-display (0.2.0~phase22) unstable; urgency=medium
+
+  * Phase 22 — capture, PNG, and the next performance tier: the
+    ldp.capture protocol module (grab -> read-once frame snapshots,
+    relayed whole through the remote gateways), the ldp-grab operator
+    tool (PNG/PPM screenshots), and the zero-dependency ldp-png
+    encoder (adaptive filters + fixed-Huffman deflate, deterministic
+    output). Renderer: ARGB opaque-span word copy (7.4x on the 4K
+    ARGB composite) and the per-frame damage row index (O(intervals)
+    per layer-row). 1,700+ workspace tests green.
+
+ -- LionOS Project <dev@lionos.example>  Mon, 28 Sep 2026 12:00:00 +0000
+
+lion-display (0.2.0~phase21) unstable; urgency=medium
+
+  * Phase 21 — remote transport: new ldp-remote crate (the TCP relay:
+    edge + hub gateways, envelope wire with negotiated caps and
+    length-bomb-proof validation, bearer-token authentication,
+    keepalive with dead-peer teardown, per-commit pool windows, eventfd
+    fences, snapshots, streaming pipes; GPU descriptors refused
+    explicitly) and the ldp-remote-gateway operator binary, shipped in
+    ldp-tools. Region.subtract ~2x faster; renderer + remote suites in
+    ldp-bench. 1,623 workspace tests green.
+
+ -- LionOS Project <dev@lionos.example>  Mon, 28 Sep 2026 10:00:00 +0000
+
+lion-display (0.1.0) unstable; urgency=medium
+
+  * Milestone release v0.1.0 — the complete 20-phase bootstrap of the
+    Lion Display Protocol: protocol (8 modules, 33 interfaces, 210
+    operations), transport with SCM_RIGHTS FD passing, generational
+    server, client library with class lanes, compositor (scene graph,
+    damage algebra, deadline frame scheduler), software renderer with
+    golden pixels, DRM/KMS atomic + EGL/DMA-BUF plumbing, evdev input
+    with xkb keymaps, seats, shell, clipboard + DnD, color/HDR with
+    ICC import, VRR policy, capability security with hash-chained
+    audit, accessibility, power/session, both compatibility bridges
+    (X11, Wayland), the operator toolchain, and the test/fuzz/stress/
+    benchmark layer (1,576 tests, 15-minute stress gate numbers
+    committed to docs/benchmarks.md).
+  * Initial Debian packaging: lion-compositor + ldp-tools binary
+    packages, systemd unit (usr-merge layout), non-debhelper rules
+    (Rules-Requires-Root: no), user/admin guides, and the maturity
+    matrix shipped as package documentation.
+
+ -- LionOS Project <dev@lionos.example>  Sun, 27 Sep 2026 12:00:00 +0000

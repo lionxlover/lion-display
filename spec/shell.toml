@@ -1,0 +1,617 @@
+# LDP shell module — toplevels, popups, dialogs, workspaces.
+#
+# Decorations are server-side by default (LionOS draws the chrome and reports
+# insets in every configure); clients may opt for client-side at creation.
+# Workspaces follow macOS-style "Spaces" semantics.
+
+[module]
+name = "ldp.shell"
+version_min = 1
+version_max = 1
+doc = """
+Window management: toplevel windows, popups (menus/tooltips), dialogs,
+and workspaces ('spaces'). Configuration follows a two-phase commit:
+the server proposes `configure` with a serial; the client `ack_configure`s
+and realizes the state with its next commit.
+"""
+
+[[import]]
+interface = "ldp.core.surface"
+
+[[import]]
+interface = "ldp.core.output"
+
+[[import]]
+interface = "ldp.input.seat"
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "decoration_mode"
+doc = "Who draws the window chrome."
+[enum.values]
+server = 1   # default: LionOS chrome; content insets reported in configure
+client = 2   # client-decorated; shell still applies system metrics (shadow, hit zones)
+
+[[enum]]
+name = "anchor"
+doc = "Edge or corner of the anchor rect a popup attaches to."
+[enum.values]
+top_left = 1
+top = 2
+top_right = 3
+right = 4
+bottom_right = 5
+bottom = 6
+bottom_left = 7
+left = 8
+
+# Phase 50 — the interactive resize's edge vocabulary (the xdg_toplevel
+# resize_edges doctrine, the WM's _NET_WM_MOVERESIZE edges before it):
+# which border or corner of the window the operator's grip drives. A
+# plain edge moves one border; a corner moves two. The engaged edges'
+# algebra lives in the drag; the opposite corner anchors.
+[[enum]]
+name = "resize_edge"
+doc = "The border or corner an interactive resize drives."
+[enum.values]
+top = 1
+bottom = 2
+left = 3
+right = 4
+top_left = 5
+top_right = 6
+bottom_left = 7
+bottom_right = 8
+
+[[enum]]
+name = "gravity"
+doc = "Direction the popup grows from its anchor point."
+[enum.values]
+top_left = 1
+top = 2
+top_right = 3
+right = 4
+bottom_right = 5
+bottom = 6
+bottom_left = 7
+left = 8
+
+[[enum]]
+name = "dialog_modality"
+doc = "Dialog modality relative to its parent toplevel."
+[enum.values]
+modal = 1
+modeless = 2
+
+[[enum]]
+name = "material"
+doc = """
+The Liquid material family (Phase 45): the per-surface material a
+client may request for its own window — the macOS NSVisualEffectView
+doctrine over the LDP wire. The server still owns the *quality* (the
+effects tier resolves what the machine can afford, Minimal dresses
+everything plain); the request is the client's *identity* claim, not a
+render order.
+"""
+[enum.values]
+default = 1     # clear the override: the server's own resolution rules apply
+panel = 2       # the opaque window material
+sheet = 3       # the translucent sheet (frosted glass)
+menu = 4        # the menu glass (vibrant frost + hairline)
+vibrant_dark = 5 # the dark vibrant frost (control-center glass)
+chrome = 6      # the system chrome (the dock's material)
+
+[[enum]]
+name = "semantic_role"
+doc = """
+What a surface *is* beyond its structure (Phase 47, the semantic
+scene) — the client's identity claim. The claim has teeth: the
+ephemeral roles (tooltip, overlay) never animate in (instant
+appearance is their contract), and the lock role floors the surface's
+security class at protected (the lock screen is never capturable).
+"""
+[enum.values]
+window = 1   # a plain window — the default doctrine
+dialog = 2   # a transient dialog of the desktop's flow
+tooltip = 3  # a tooltip — instant appearance, never transitions
+overlay = 4  # a floating overlay (a media HUD) — instant like the tooltip
+lock = 5     # the lock surface — the security floor applies
+
+[[enum]]
+name = "security_class"
+doc = """
+What a surface may *expose* (Phase 47, the security-aware compositor):
+the capture-path ladder. Normal and private capture whole (private
+classifies for the screen-share negotiation, the broker-era line);
+protected and system redact out of every client-visible capture frame
+while the display keeps showing the content — the user sees their
+window, the screenshot does not.
+"""
+[enum.values]
+normal = 1    # ordinary content — captures whole (the default)
+private = 2   # sensitive content — classifies for screen-share negotiation
+protected = 3 # protected content — never composited into a capture frame
+system = 4    # system content — the server chrome's class, redacts like protected
+
+[[enum]]
+name = "scene_profile"
+doc = """
+How the machine spends its frame budget on one surface (Phase 47, the
+adaptive frame scheduler): the per-surface admission floor the
+deadline walk demands — the minimum remaining commit time a
+frame-target contract must offer before retargeting the next vblank.
+"""
+[enum.values]
+desktop = 1  # the operator's configured policy — no added floor (the default)
+creative = 2 # 4 ms floor — stable pacing over single-frame latency
+gaming = 3   # 1 ms floor — the tightest makeable admission
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "toplevel_states"
+doc = "State flags carried by `configure`."
+[bitset.bits]
+maximized = 0
+fullscreen = 1
+minimized = 2
+activated = 3
+sticky = 4
+resizing = 5
+
+[[bitset]]
+name = "popup_constraints"
+doc = "Constraint strategies the shell may apply when a popup does not fit."
+[bitset.bits]
+slide_x = 0
+slide_y = 1
+flip_x = 2
+flip_y = 3
+resize_x = 4
+resize_y = 5
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "shell"
+global = true
+doc = """
+Factory and policy entry point for window roles. A surface may take at most
+one role (toplevel, popup, dialog, or subsurface); requesting a second role
+is an `invalid_state` error.
+"""
+
+[[interface.request]]
+name = "get_toplevel"
+doc = "Give `surface` the toplevel role and create its toplevel object."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "decoration", type = "enum", of = "decoration_mode" },
+  { name = "id", type = "new_id", of = "toplevel" },
+]
+
+[[interface.request]]
+name = "get_popup"
+doc = """
+Give `surface` the popup role. Geometry is anchor-based: `anchor_rect` is in
+parent coordinates; the popup attaches at `anchor` and grows along `gravity`,
+offset by (`offset_x`, `offset_y`); `constraints` selects the strategies the
+shell may use when the popup would leave the visible area.
+"""
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "parent", type = "object", of = "ldp.core.surface", nullable = true, doc = "Null: popup relative to the toplevel itself (bar menus)." },
+  { name = "anchor_rect", type = "rect" },
+  { name = "anchor", type = "enum", of = "anchor" },
+  { name = "gravity", type = "enum", of = "gravity" },
+  { name = "offset_x", type = "int32" },
+  { name = "offset_y", type = "int32" },
+  { name = "constraints", type = "bitset", of = "popup_constraints" },
+  { name = "id", type = "new_id", of = "popup" },
+]
+
+[[interface.request]]
+name = "get_dialog"
+doc = "Give `surface` the dialog role attached to `parent_toplevel`."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "parent_toplevel", type = "object", of = "toplevel" },
+  { name = "modality", type = "enum", of = "dialog_modality" },
+  { name = "id", type = "new_id", of = "dialog" },
+]
+
+[[interface.event]]
+name = "workspace_count"
+doc = "Number of spaces on the seat this client is interacting with (after binding)."
+args = [
+  { name = "count", type = "uint32" },
+]
+
+# Phase 51 appends the view switch the same way — after the frozen
+# opcodes, purely additive, the freeze re-taken consciously. The
+# operator-side arm the ledger named (`Spaces::switch` was built,
+# the wire had no request — the taskbar's line): a client asks the
+# *seat* to view another space, every window homed there shows, the
+# others hide (the visibility sync's own doctrine — the spec's
+# window-level `workspace_changed` never moves, a view switch moves
+# no windows).
+[[interface.request]]
+name = "switch_workspace"
+doc = """
+Switch the seat's viewed space (Phase 51 — the view switch, the
+taskbar's arm). `index` clamps to the space count exactly as
+`toplevel.set_workspace` does; the reply is `workspace_switched`
+carrying the *actual* space (a switch to the space already viewed
+is a silent no-op — the truth did not change). Windows homed on
+the newly-viewed space show, windows on the others hide (sticky
+windows show everywhere); no window's own state is proposed — the
+only configures the switch can carry are the focus truth's own
+(the frontmost window homed on the newly-viewed space takes the
+keys, the old holder releases them — the `activated` bit), the
+occlusion quiescer parks the hidden spaces' frame requests, and
+`workspace_changed` stays what it always was (the *window* moved).
+"""
+args = [
+  { name = "index", type = "uint32" },
+]
+
+[[interface.event]]
+name = "workspace_switched"
+doc = """
+The seat's viewed space changed (a `switch_workspace` landed, the
+clamp applied). Reported to every client that bound this shell
+global — the taskbar that asked, the wallpaper daemon that did
+not. The `active` value is the space now viewed (the clamp's
+honest answer, never the ask).
+"""
+args = [
+  { name = "active", type = "uint32" },
+]
+
+[[interface]]
+name = "toplevel"
+doc = """
+A top-level window. The server proposes state with `configure` (serial,
+states, content size, SSD insets, workspace, output); the client must
+`ack_configure` before committing a buffer matching the proposal. Destroying
+the toplevel releases the role; the surface may then take a new role.
+"""
+
+[[interface.request]]
+name = "set_title"
+doc = "Set the window title (UTF-8, shown in decorations and the window list)."
+args = [
+  { name = "title", type = "string" },
+]
+
+[[interface.request]]
+name = "set_app_id"
+doc = "Set the application identity used for icons, grouping and audit attribution."
+args = [
+  { name = "app_id", type = "string" },
+]
+
+[[interface.request]]
+name = "set_min_size"
+doc = "Minimum content size in logical pixels (0 = unconstrained per axis)."
+args = [
+  { name = "width", type = "uint32" },
+  { name = "height", type = "uint32" },
+]
+
+[[interface.request]]
+name = "set_max_size"
+doc = "Maximum content size in logical pixels (0 = unconstrained per axis)."
+args = [
+  { name = "width", type = "uint32" },
+  { name = "height", type = "uint32" },
+]
+
+[[interface.request]]
+name = "set_workspace"
+doc = "Move the window to space `index` (clamped to the space count)."
+args = [
+  { name = "index", type = "uint32" },
+]
+
+[[interface.request]]
+name = "maximize"
+doc = "Request maximized state (fills the workspace area minus decorations)."
+
+[[interface.request]]
+name = "unmaximize"
+doc = "Leave maximized state."
+
+[[interface.request]]
+name = "fullscreen"
+doc = "Request fullscreen on `output` (null: current output)."
+args = [
+  { name = "output", type = "object", of = "ldp.core.output", nullable = true },
+]
+
+[[interface.request]]
+name = "unfullscreen"
+doc = "Leave fullscreen state."
+
+[[interface.request]]
+name = "minimize"
+doc = "Request minimized state (window hidden from the space, kept alive)."
+
+[[interface.request]]
+name = "unminimize"
+doc = "Ask to leave minimized state (the shell decides when to restore)."
+
+[[interface.request]]
+name = "set_sticky"
+doc = "Show on all spaces (dockers, media overlays)."
+args = [
+  { name = "sticky", type = "bool" },
+]
+
+[[interface.request]]
+name = "ack_configure"
+doc = "Accept the proposal with this serial; the next commit realizes it."
+args = [
+  { name = "serial", type = "uint32" },
+]
+
+# Phase 45 appends `set_material` *after* the frozen requests — the
+# addition is purely additive on the wire (no existing opcode moves,
+# the freeze gate's own discipline: the v1 surface extends, it never
+# reshuffles). The freeze is re-taken consciously for the addition.
+[[interface.request]]
+name = "set_material"
+doc = """
+Request the Liquid material for this window's own chrome (Phase 45 —
+the per-surface material request, the roadmap's named line closed).
+`default` clears the request: the server's own resolution rules apply
+again (fullscreen-opaque plain, popups menu, translucent sheet, opaque
+panel). The material family is the renderer's; the *quality* stays the
+server's — the effects tier dresses what the machine can afford, and a
+Minimal-tier machine resolves every material plain (the honest
+degradation, never a lie). The request takes effect at the next
+commit; the repaint of the changed chrome is the server's (the Liquid
+spread recomputes with the new material).
+"""
+args = [
+  { name = "material", type = "enum", of = "material" },
+]
+
+# Phase 47 appends the semantic-scene triple the same way — after the
+# frozen opcodes, purely additive, the freeze re-taken consciously.
+# A surface may claim what it *is* (a semantic role), what it may
+# *expose* (a security class), and how the machine spends its frame
+# budget on it (a scene profile) — the LionOS display architecture's
+# "a surface is more than its buffer" doctrine, carried over the wire.
+[[interface.request]]
+name = "set_semantic_role"
+doc = """
+Claim what this surface *is* beyond its structure (Phase 47, the
+semantic scene). The claim has teeth: tooltips and overlays are
+excluded from the compositor-owned transitions (instant appearance —
+a menu that fades in has already failed its user), and the `lock`
+role floors the surface's security class at `protected` (the lock
+screen is never capturable, whatever a client claims beneath). The
+role takes effect immediately; the default (no claim) is the plain
+window doctrine.
+"""
+args = [
+  { name = "role", type = "enum", of = "semantic_role" },
+]
+
+[[interface.request]]
+name = "set_security_class"
+doc = """
+Claim what this surface may *expose* (Phase 47, the security-aware
+compositor). `normal` and `private` capture whole (the private tier
+classifies for the screen-share negotiation — the broker-era line);
+`protected` and `system` redact out of every client-visible capture
+frame while the display itself keeps showing the content — the user
+sees their window, the screenshot does not. The compositor is the
+enforcement point *because* it controls what becomes visible. The
+class takes effect at the next capture; a `lock`-role surface cannot
+claim below protected.
+"""
+args = [
+  { name = "class", type = "enum", of = "security_class" },
+]
+
+[[interface.request]]
+name = "set_scene_profile"
+doc = """
+Claim how the machine spends its frame budget on this surface (Phase
+47, the adaptive frame scheduler). The profile floors the deadline
+scheduler's admission predicate — the minimum remaining commit time a
+frame-target contract must offer before the walk retargets the next
+vblank: `gaming` floors at 1 ms (the tightest makeable admission —
+latency through reliability), `creative` at 4 ms (stable pacing over
+single-frame latency, the editor's doctrine), `desktop` adds nothing
+(the operator's configured policy *is* the desktop doctrine). A live
+registration keeps the contract it was answered with; the surface's
+next frame request walks under the new floor.
+"""
+args = [
+  { name = "profile", type = "enum", of = "scene_profile" },
+]
+
+# Phase 50 appends the operator's hand the same way — after the
+# frozen opcodes, purely additive, the freeze re-taken consciously.
+# The interactive move/resize vocabulary the spec never grew: the
+# client asks the *compositor* to drive the geometry (the title-bar
+# drag and the edge grip every desktop serves), the seat's serial
+# proves the ask is fresh, and the drag ends at the button's
+# release. The states bit the machine already carries (`resizing`,
+# frozen at index 5 since v1) rides the live proposals.
+[[interface.request]]
+name = "start_move"
+doc = """
+Begin an interactive move of this window, driven by the seat's
+pointer (Phase 50 — the operator's hand). `serial` must be the
+seat's current interaction serial — the value of the seat's latest
+serial-bearing delivery (the same freshness gate `set_selection` and
+`popup.grab` enforce; press-issued serials ride the device-event
+serial line in the roadmap). The shell owns the geometry from here:
+every pointer motion moves the window at the input pump's cadence
+(server truth, no proposal — the client never learns positions it
+cannot use), the work area's keep band holds the title grip
+reachable, and the drag ends at the button's release. A maximized or
+fullscreen window demotes first: the proposal restores the floating
+size the geometry verbs displaced, anchored so the pointer keeps its
+grip, and the drag carries on from there (the Windows 11 / macOS
+title-drag doctrine).
+"""
+args = [
+  { name = "seat", type = "object", of = "ldp.input.seat" },
+  { name = "serial", type = "uint32" },
+]
+
+[[interface.request]]
+name = "start_resize"
+doc = """
+Begin an interactive resize of this window along `edges`, driven by
+the seat's pointer (Phase 50 — the operator's hand, the other half).
+The same freshness gate as `start_move`. The machine carries the
+engaged edges for the drag's life; every pointer motion computes the
+target geometry (the edge algebra: the engaged edges follow the
+pointer, the opposite corner anchors) and *proposes* it through the
+two-phase commit — the client acks and commits the resized buffer,
+so a window never tears mid-resize (the geometry realizes at the
+client's cadence, exactly the states arm's doctrine). The `resizing`
+state rides every live proposal (the client's own hint that
+committing now matters), and the release's final proposal clears it.
+Refused on a maximized or fullscreen window (the geometry states own
+the size — demote with `start_move` first) and on a hidden one (an
+invisible window has no grip).
+"""
+args = [
+  { name = "seat", type = "object", of = "ldp.input.seat" },
+  { name = "serial", type = "uint32" },
+  { name = "edges", type = "enum", of = "resize_edge" },
+]
+
+[[interface.event]]
+name = "configure"
+doc = """
+State proposal. `width`/`height` are the content area in logical pixels
+(0 = client chooses). The four insets are the server-side decoration
+margins around the content area (left, top, right, bottom) — under CSD they
+are the system chrome metrics the client should reserve. `workspace` is the
+space the window is on; `output` the output it is primarily on.
+"""
+args = [
+  { name = "serial", type = "uint32" },
+  { name = "states", type = "bitset", of = "toplevel_states" },
+  { name = "width", type = "uint32" },
+  { name = "height", type = "uint32" },
+  { name = "inset_left", type = "int32" },
+  { name = "inset_top", type = "int32" },
+  { name = "inset_right", type = "int32" },
+  { name = "inset_bottom", type = "int32" },
+  { name = "workspace", type = "uint32" },
+  { name = "output", type = "object", of = "ldp.core.output", nullable = true },
+]
+
+[[interface.event]]
+name = "close"
+doc = "The user asked to close (window button, menu, session policy). Client destroys the toplevel when ready."
+
+[[interface.event]]
+name = "workspace_changed"
+doc = "The window moved to another space (user drag, shell reflow)."
+args = [
+  { name = "workspace", type = "uint32" },
+]
+
+[[interface]]
+name = "popup"
+doc = """
+A popup (menu, tooltip, dropdown). Visible while the pointer grab (implicit
+at creation, or explicit via `grab`) holds; dismissed by focus loss or
+`dismiss`. Constraint solving reports the final placement in `configure`.
+"""
+
+[[interface.request]]
+name = "grab"
+doc = "Take an explicit pointer grab with this popup (menus with submenus). `serial` must reference a button press from this seat."
+args = [
+  { name = "seat", type = "object", of = "ldp.input.seat" },
+  { name = "serial", type = "uint32" },
+]
+
+[[interface.request]]
+name = "ack_configure"
+doc = "Accept the placement proposal with this serial."
+args = [
+  { name = "serial", type = "uint32" },
+]
+
+[[interface.request]]
+name = "reposition"
+doc = "Re-run constraint solving with a new anchor geometry (menus scrolling under the cursor)."
+args = [
+  { name = "anchor_rect", type = "rect" },
+  { name = "anchor", type = "enum", of = "anchor" },
+  { name = "gravity", type = "enum", of = "gravity" },
+  { name = "offset_x", type = "int32" },
+  { name = "offset_y", type = "int32" },
+]
+
+[[interface.request]]
+name = "dismiss"
+doc = "Client-initiated dismissal (menu item activated)."
+
+[[interface.event]]
+name = "configure"
+doc = "Placement proposal after constraint solving; position is relative to the parent's top-left."
+args = [
+  { name = "serial", type = "uint32" },
+  { name = "x", type = "int32" },
+  { name = "y", type = "int32" },
+  { name = "width", type = "uint32" },
+  { name = "height", type = "uint32" },
+]
+
+[[interface.event]]
+name = "done"
+doc = "The popup was dismissed server-side (grab broken, dismissal). Client stops rendering it."
+
+[[interface]]
+name = "dialog"
+doc = """
+A transient dialog attached to a toplevel. Modal dialogs gate input delivery
+to their parent's tree. Centering is server-side per LionOS policy.
+"""
+
+[[interface.request]]
+name = "set_title"
+doc = "Set the dialog title."
+args = [
+  { name = "title", type = "string" },
+]
+
+[[interface.request]]
+name = "ack_configure"
+doc = "Accept the proposal with this serial."
+args = [
+  { name = "serial", type = "uint32" },
+]
+
+[[interface.event]]
+name = "configure"
+doc = "Size proposal for the dialog content area."
+args = [
+  { name = "serial", type = "uint32" },
+  { name = "width", type = "uint32" },
+  { name = "height", type = "uint32" },
+]
+
+[[interface.event]]
+name = "close"
+doc = "The user asked to close the dialog."

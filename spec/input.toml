@@ -1,0 +1,535 @@
+# LDP input module — seats, pointer, keyboard, touch, tablets, gestures.
+#
+# One `seat` global per seat (multi-seat = multiple globals). Capability
+# objects (pointer/keyboard/touch/tablet/gestures) are created from the seat.
+# Input delivery is focus-gated; global grabs and synthetic injection are
+# gated by ldp.security scopes.
+
+[module]
+name = "ldp.input"
+version_min = 1
+version_max = 1
+doc = """
+Seats and input devices: pointer, keyboard (xkb keymaps), touch, stylus and
+tablets, and gesture recognition. Events use f32 surface coordinates
+(subpixel precision for touch and stylus).
+"""
+
+[[import]]
+interface = "ldp.core.surface"
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "button_state"
+doc = "Physical button state."
+[enum.values]
+released = 1
+pressed = 2
+
+[[enum]]
+name = "key_state"
+doc = "Physical key state."
+[enum.values]
+released = 1
+pressed = 2
+
+[[enum]]
+name = "axis"
+doc = "Scroll axis."
+[enum.values]
+vertical = 1
+horizontal = 2
+
+[[enum]]
+name = "axis_source"
+doc = "What generated a scroll sequence."
+[enum.values]
+wheel = 1
+finger = 2
+continuous = 3
+wheel_tilt = 4
+
+[[enum]]
+name = "keymap_format"
+doc = "Keymap serialization handed to clients as a read-only FD."
+[enum.values]
+xkb_v1 = 1
+
+[[enum]]
+name = "tablet_tool_type"
+doc = "Type of the proximity tool on a tablet."
+[enum.values]
+pen = 1
+eraser = 2
+brush = 3
+pencil = 4
+airbrush = 5
+mouse = 6
+lens = 7
+finger = 8
+
+[[enum]]
+name = "tablet_axes"
+doc = "Normalized stylus axes, 0..1."
+[enum.values]
+pressure = 1
+tilt_x = 2
+tilt_y = 3
+rotation = 4
+slider = 5
+wheel = 6
+
+# ---------------------------------------------------------------------------
+# Bitsets
+# ---------------------------------------------------------------------------
+
+[[bitset]]
+name = "seat_caps"
+doc = "Input capability classes a seat currently provides."
+[bitset.bits]
+pointer = 0
+keyboard = 1
+touch = 2
+tablet = 3
+gesture = 4
+
+# ---------------------------------------------------------------------------
+# Interfaces
+# ---------------------------------------------------------------------------
+
+[[interface]]
+name = "seat"
+global = true
+doc = """
+One seat: a coherent set of input devices with its own focus, keyboard
+map, clipboard and data device. Seats never share focus or selections.
+"""
+
+[[interface.event]]
+name = "capabilities"
+doc = "Current capability set; re-emitted when devices come and go."
+args = [
+  { name = "caps", type = "bitset", of = "seat_caps" },
+]
+
+[[interface.event]]
+name = "name"
+doc = "Human-readable seat name ('seat0', 'seat-usb'...)."
+args = [
+  { name = "name", type = "string" },
+]
+
+[[interface.request]]
+name = "get_pointer"
+doc = "Create the seat's pointer object (one per seat per client)."
+args = [
+  { name = "id", type = "new_id", of = "pointer" },
+]
+
+[[interface.request]]
+name = "get_keyboard"
+doc = "Create the seat's keyboard object."
+args = [
+  { name = "id", type = "new_id", of = "keyboard" },
+]
+
+[[interface.request]]
+name = "get_touch"
+doc = "Create the seat's touch object."
+args = [
+  { name = "id", type = "new_id", of = "touch" },
+]
+
+[[interface.request]]
+name = "get_tablet"
+doc = "Create the seat's tablet object (stylus/eraser devices)."
+args = [
+  { name = "id", type = "new_id", of = "tablet" },
+]
+
+[[interface.request]]
+name = "get_gestures"
+doc = "Create the seat's gesture object (touchpad swipe/pinch/hold recognition)."
+args = [
+  { name = "id", type = "new_id", of = "gestures" },
+]
+
+[[interface]]
+name = "pointer"
+doc = """
+Pointer events of one seat. `motion` carries absolute surface coordinates;
+`relative_motion` carries raw and accelerated deltas for games and camera
+control. Scroll sequences group into atomic updates terminated by `frame`.
+"""
+
+[[interface.event]]
+name = "enter"
+doc = "Pointer entered a surface (focus follows input-region hit testing)."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "leave"
+doc = "Pointer left the focused surface."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+]
+
+[[interface.event]]
+name = "motion"
+doc = "Absolute motion in surface coordinates (subpixel)."
+args = [
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "relative_motion"
+doc = "Relative deltas: unaccelerated (raw device units) and accelerated."
+args = [
+  { name = "dx_unaccel", type = "float32" },
+  { name = "dy_unaccel", type = "float32" },
+  { name = "dx_accel", type = "float32" },
+  { name = "dy_accel", type = "float32" },
+]
+
+[[interface.event]]
+name = "button"
+doc = "Button press/release. Buttons are Linux input event codes."
+args = [
+  { name = "button", type = "uint32" },
+  { name = "state", type = "enum", of = "button_state" },
+]
+
+[[interface.event]]
+name = "axis"
+doc = "Scroll amount along `axis` in the unit of `axis_source` (radians for finger, clicks for wheel)."
+args = [
+  { name = "axis", type = "enum", of = "axis" },
+  { name = "value", type = "float32" },
+]
+
+[[interface.event]]
+name = "axis_discrete"
+doc = "Discrete scroll steps (e.g. wheel ticks) for button-based scrolling."
+args = [
+  { name = "axis", type = "enum", of = "axis" },
+  { name = "discrete", type = "int32" },
+]
+
+[[interface.event]]
+name = "axis_stop"
+doc = "Scroll interaction along `axis` ended."
+args = [
+  { name = "axis", type = "enum", of = "axis" },
+]
+
+[[interface.event]]
+name = "axis_source"
+doc = "Source of the current scroll sequence; precedes the sequence's axis events."
+args = [
+  { name = "source", type = "enum", of = "axis_source" },
+]
+
+[[interface.event]]
+name = "frame"
+doc = "Terminates one atomic group of pointer events (motion+buttons+axes)."
+
+[[interface]]
+name = "keyboard"
+doc = """
+Keyboard events of one seat. The keymap is delivered once as a read-only FD;
+`modifiers` carries the xkb modifier group state; repeat is modeled
+server-side with the parameters from `repeat_info`.
+"""
+
+[[interface.event]]
+name = "keymap"
+doc = "The seat's keymap. The FD is read-only shared memory; keep it for the seat's lifetime."
+args = [
+  { name = "fd", type = "fd" },
+  { name = "format", type = "enum", of = "keymap_format" },
+]
+
+[[interface.event]]
+name = "enter"
+doc = "Keyboard focus moved to this surface. `keys` lists currently pressed keycodes."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "keys", type = "array", of = "uint32", doc = "Pressed evdev keycodes." },
+]
+
+[[interface.event]]
+name = "leave"
+doc = "Keyboard focus left this surface."
+args = [
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+]
+
+[[interface.event]]
+name = "key"
+doc = "Key press/release. Keycodes are Linux evdev key codes (not X keysyms)."
+args = [
+  { name = "keycode", type = "uint32" },
+  { name = "state", type = "enum", of = "key_state" },
+]
+
+[[interface.event]]
+name = "modifiers"
+doc = "xkb modifier state after group decomposition."
+args = [
+  { name = "depressed", type = "uint32" },
+  { name = "latched", type = "uint32" },
+  { name = "locked", type = "uint32" },
+  { name = "group", type = "uint32" },
+]
+
+[[interface.event]]
+name = "repeat_info"
+doc = "Key repeat parameters: `rate` keys per second, `delay` in milliseconds."
+args = [
+  { name = "rate", type = "int32" },
+  { name = "delay", type = "int32" },
+]
+
+[[interface]]
+name = "touch"
+doc = """
+Multitouch events of one seat. Touch sequences group into frames terminated
+by `frame`. `cancel` invalidates the whole current sequence (device
+grab/dependency loss).
+"""
+
+[[interface.event]]
+name = "down"
+doc = "New touch point `id` on a surface (grab semantics: the surface owns the point until up)."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "up"
+doc = "Touch point `id` lifted."
+args = [
+  { name = "id", type = "uint32" },
+]
+
+[[interface.event]]
+name = "motion"
+doc = "Touch point `id` moved."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "frame"
+doc = "End of one touch update batch."
+
+[[interface.event]]
+name = "cancel"
+doc = "All active touches cancelled; treat the sequence as aborted."
+
+[[interface.event]]
+name = "shape"
+doc = "Contact ellipse major/minor axes of touch point `id` (units: surface mm)."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "major", type = "float32" },
+  { name = "minor", type = "float32" },
+]
+
+[[interface.event]]
+name = "orientation"
+doc = "Contact ellipse orientation of touch point `id`, radians."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "orientation", type = "float32" },
+]
+
+[[interface]]
+name = "tablet"
+doc = """
+Stylus/tablet events of one seat. Tool changes are announced with `tool` /
+`tool_done` (proximity). Axis events group into frames like touch. Axes are
+normalized 0..1 (pressure, slider) or radians (tilt, rotation).
+"""
+
+[[interface.event]]
+name = "tool"
+doc = "A tool came into proximity; `id` identifies it for the following events."
+args = [
+  { name = "id", type = "uint64", doc = "Tool instance ID (serial-derived where available)." },
+  { name = "type", type = "enum", of = "tablet_tool_type" },
+]
+
+[[interface.event]]
+name = "tool_done"
+doc = "The tool left proximity."
+args = [
+  { name = "id", type = "uint64" },
+]
+
+[[interface.event]]
+name = "down"
+doc = "Tool contact began on a surface."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "surface", type = "object", of = "ldp.core.surface" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "up"
+doc = "Tool contact ended."
+args = [
+  { name = "id", type = "uint64" },
+]
+
+[[interface.event]]
+name = "motion"
+doc = "Tool absolute position in surface coordinates."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "pressure"
+doc = "Normalized pressure 0..1."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "value", type = "float32" },
+]
+
+[[interface.event]]
+name = "tilt"
+doc = "Tilt from the tablet plane normal, radians."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "x", type = "float32" },
+  { name = "y", type = "float32" },
+]
+
+[[interface.event]]
+name = "rotation"
+doc = "Tool rotation around its own axis, radians (airbrush wheel, twist pens)."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "value", type = "float32" },
+]
+
+[[interface.event]]
+name = "slider"
+doc = "Normalized slider/wheel axis 0..1."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "value", type = "float32" },
+]
+
+[[interface.event]]
+name = "wheel"
+doc = "Relative wheel delta in discrete steps."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "distance", type = "float32" },
+]
+
+[[interface.event]]
+name = "button"
+doc = "Tool button press/release."
+args = [
+  { name = "id", type = "uint64" },
+  { name = "button", type = "uint32" },
+  { name = "state", type = "enum", of = "button_state" },
+]
+
+[[interface.event]]
+name = "frame"
+doc = "End of one tablet event batch (axes + buttons)."
+
+[[interface]]
+name = "gestures"
+doc = """
+Recognized touchpad gestures. `id` groups a gesture instance; deltas are
+in logical pixels. `cancelled` marks gestures interrupted by device state.
+"""
+
+[[interface.event]]
+name = "swipe_begin"
+args = [
+  { name = "id", type = "uint32" },
+  { name = "fingers", type = "uint32" },
+]
+doc = "A multi-finger swipe started."
+
+[[interface.event]]
+name = "swipe_update"
+doc = "Swipe motion delta since the last update."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "dx", type = "float32" },
+  { name = "dy", type = "float32" },
+]
+
+[[interface.event]]
+name = "swipe_end"
+doc = "The swipe ended (`cancelled` = recognized as a different gesture or device reset)."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "cancelled", type = "bool" },
+]
+
+[[interface.event]]
+name = "pinch_begin"
+args = [
+  { name = "id", type = "uint32" },
+  { name = "fingers", type = "uint32" },
+]
+doc = "A pinch/zoom gesture started."
+
+[[interface.event]]
+name = "pinch_update"
+doc = "Pinch update: incremental scale factor and centroid delta."
+args = [
+  { name = "id", type = "uint32" },
+  { name = "scale", type = "float32", doc = "Incremental scale since last update, 1.0 = none." },
+  { name = "dx", type = "float32" },
+  { name = "dy", type = "float32" },
+]
+
+[[interface.event]]
+name = "pinch_end"
+args = [
+  { name = "id", type = "uint32" },
+  { name = "cancelled", type = "bool" },
+]
+doc = "The pinch ended."
+
+[[interface.event]]
+name = "hold_begin"
+args = [
+  { name = "id", type = "uint32" },
+  { name = "fingers", type = "uint32" },
+]
+doc = "A hold (fingers down, no motion) started."
+
+[[interface.event]]
+name = "hold_end"
+args = [
+  { name = "id", type = "uint32" },
+  { name = "cancelled", type = "bool" },
+]
+doc = "The hold ended."

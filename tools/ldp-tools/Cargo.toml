@@ -1,0 +1,76 @@
+[package]
+name = "ldp-tools"
+description = "LDP operator toolchain library: session driving, socket discovery, wire formatting, audit-log IO, frame capture — the shared core of ldp-info/debug/validate/profiler/audit/input-debug/grab"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "ldp_tools"
+path = "src/lib.rs"
+
+# One package, six operator binaries: every tool's logic lives in the
+# library (`ldp_tools::tools::*`), each `src/bin/*.rs` is a thin argv
+# adapter, and the integration suites drive the real binaries via
+# `CARGO_BIN_EXE_*` against an in-process Phase 10 compositor.
+[[bin]]
+name = "ldp-info"
+path = "src/bin/ldp-info.rs"
+
+[[bin]]
+name = "ldp-debug"
+path = "src/bin/ldp-debug.rs"
+
+[[bin]]
+name = "ldp-validate"
+path = "src/bin/ldp-validate.rs"
+
+[[bin]]
+name = "ldp-profiler"
+path = "src/bin/ldp-profiler.rs"
+
+[[bin]]
+name = "ldp-audit"
+path = "src/bin/ldp-audit.rs"
+
+[[bin]]
+name = "ldp-input-debug"
+path = "src/bin/ldp-input-debug.rs"
+
+[[bin]]
+name = "ldp-grab"
+path = "src/bin/ldp-grab.rs"
+
+[dependencies]
+# Toolchain-side dependency policy (CONTRIBUTING.md rule 5): the tools
+# sit *beside* the shipped runtime crates, not inside them, so this
+# package may depend on the protocol compiler (`ldpc`, which carries
+# `toml`/`serde`) in addition to every LDP layer crate. `libc` is the
+# canonical Linux ABI binding for the audited `sys` module (the
+# ldp-transport precedent: SAFETY-commented wrappers only).
+ldp-core = { path = "../../crates/ldp-core" }
+ldp-protocol = { path = "../../crates/ldp-protocol" }
+ldp-transport = { path = "../../crates/ldp-transport" }
+ldp-client = { path = "../../crates/ldp-client" }
+ldp-png = { path = "../../crates/ldp-png" }
+ldp-security = { path = "../../crates/ldp-security" }
+ldp-compositor = { path = "../../crates/ldp-compositor" }
+ldp-input = { path = "../../crates/ldp-input" }
+ldp-display = { path = "../../crates/ldp-display" }
+ldp-gpu = { path = "../../crates/ldp-gpu" }
+ldpc = { path = "../ldpc" }
+libc = "0.2"
+
+[dev-dependencies]
+# The exit criterion is "every tool runs against the Phase 10
+# compositor": the suites bring `lion-compositor` up in-process (the
+# testbench pattern) and drive the compiled binaries over its socket.
+lion-compositor = { path = "../../binaries/lion-compositor" }
+
+[lints]
+workspace = true

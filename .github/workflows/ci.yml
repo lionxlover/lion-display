@@ -1,0 +1,75 @@
+# LDP CI — the same gate as scripts/verify.sh, on every push and PR.
+#
+# Phase 2 adds the drift job: the committed generated code in
+# crates/ldp-protocol/src/generated/ and docs/reference/ must byte-match
+# what ldpc produces from spec/. The spec is the source of truth; the
+# generated output may never disagree with it.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: fmt + clippy + test + doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Tests (including the drift gate)
+        run: cargo test --all --all-features
+      - name: Docs
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
+
+  spec:
+    name: spec lint + generated-code drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Structural spec lint
+        run: python3 scripts/spec_lint.py
+      - name: Semantic validation + drift check
+        run: |
+          cargo run -p ldpc -- check
+          cargo run -p ldpc -- gen --check
+
+  msrv:
+    name: minimum supported rust version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # rust-version = "1.75" in the workspace manifest is a promise; this
+      # job keeps it honest (Phase 22 future-proofing: the promise is now
+      # tested, not merely declared).
+      - uses: dtolnay/rust-toolchain@1.75.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the workspace on the MSRV
+        run: cargo build --workspace --all-features
+      - name: Unit tests on the MSRV
+        run: cargo test --workspace --lib --all-features
+
+  deps:
+    name: dependency policy guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The runtime dependency policy (CONTRIBUTING.md rule 5), executable:
+      # only in-tree crates + libc (+ ldpc's toml/serde front-end) may
+      # appear in Cargo.lock. A stray `cargo add` fails CI here.
+      - name: Only the allowed runtime dependencies exist
+        run: python3 scripts/dep_policy.py

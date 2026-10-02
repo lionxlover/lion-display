@@ -1,0 +1,31 @@
+[package]
+name = "ldp-vrr"
+description = "LDP adaptive-sync policy engine: the off/deadline/always policy table over panel caps, surface mix, and power state; refresh windows with flip-slip avoidance; the commit-at-ready latency optimizer with fixed-rate fallback (the Throttled drop path); and the tearing opt-in gate kept strictly independent of VRR"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the VRR engine is a
+# pure policy layer over the frame-timing vocabulary of ldp-core (Mono,
+# RefreshInterval, PresentationMode, FrameDropReason) and the deadline
+# scheduler of ldp-compositor (SchedulerConfig's adaptive window). No
+# external dependencies; the KMS property seam is expressed as plain
+# decisions the embedder programs through ldp-display.
+ldp-core = { path = "../ldp-core" }
+ldp-compositor = { path = "../ldp-compositor" }
+
+[dev-dependencies]
+# Integration tests drive the deterministic mock KMS device (the panel
+# model whose flip semantics the selector mirrors) plus its atomic
+# request path, so the golden timelines exercise the real seam the
+# compositor binary will program.
+ldp-display = { path = "../ldp-display" }
+
+[lints]
+workspace = true

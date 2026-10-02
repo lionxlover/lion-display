@@ -1,0 +1,26 @@
+[package]
+name = "ldp-planes"
+description = "LDP hardware plane assignment: the scanout-plan engine that maps a composited layer stack onto a CRTC's plane set (primary + overlays), the split-point doctrine that keeps the composited canvas under offloaded overlays, direct-scanout eligibility for the bottom layer, and the demotion ledger that names why every composite layer did not ride a plane"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the plane engine is a
+# pure decision layer over the KMS plane model of ldp-display (PlaneInfo,
+# IN_FORMATS capability blobs, object ids) and the geometry/format/color
+# vocabulary of ldp-core. It issues no ioctls and holds no device state —
+# the compositor binary feeds it facts and programs its plan through
+# ldp-display's atomic request builder.
+ldp-core = { path = "../ldp-core" }
+ldp-display = { path = "../ldp-display" }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

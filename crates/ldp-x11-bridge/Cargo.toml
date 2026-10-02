@@ -1,0 +1,32 @@
+[package]
+name = "ldp-x11-bridge"
+description = "LDP compatibility bridge: a pure-Rust X11 server subset (core + BIG-REQUESTS + MIT-SHM) proxying X windows into LDP toplevels with explicit-sync translation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the bridge is a
+# user-session compatibility proxy, but the *crate* is pure protocol
+# machinery — an X11 wire codec, a server-subset state machine, a
+# software rasterizer for the core drawing ops, and an LDP driver that
+# emits/absorbs `ldp-protocol` messages. It opens no sockets, maps no
+# shared memory (the MIT-SHM backend is a seam the process binary
+# supplies), reads no clock, and holds no `unsafe` — the process-level
+# syscall layer follows the ldp-transport audit doctrine.
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+
+[dev-dependencies]
+# Conformance-only: the EC requires the driver to authenticate with a
+# real bridge-scope capability token minted by the Phase 16 grant
+# machinery (forgery corpus cross-checks the rejection paths).
+ldp-security = { path = "../ldp-security" }
+
+[lints]
+workspace = true

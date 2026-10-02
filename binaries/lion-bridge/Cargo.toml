@@ -1,0 +1,38 @@
+[package]
+name = "lion-bridge"
+description = "The LionOS compatibility door: Wayland and X11 applications run on lion-display through the bridge drivers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "lion_bridge"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lion-bridge"
+path = "src/main.rs"
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the bridge
+# depends on the protocol machinery crates (forbid(unsafe) — pure)
+# and the transport crate whose `sys` module is the audited syscall
+# layer. `libc` follows the ldp-transport precedent: the `sys` module
+# here wraps poll/shmat with SAFETY comments per call.
+ldp-core = { path = "../../crates/ldp-core" }
+ldp-protocol = { path = "../../crates/ldp-protocol" }
+ldp-transport = { path = "../../crates/ldp-transport" }
+ldp-wayland-bridge = { path = "../../crates/ldp-wayland-bridge" }
+ldp-x11-bridge = { path = "../../crates/ldp-x11-bridge" }
+ldp-tools = { path = "../../tools/ldp-tools" }
+libc = "0.2"
+
+[dev-dependencies]
+lion-compositor = { path = "../lion-compositor" }
+ldp-client = { path = "../../crates/ldp-client" }
+ldp-input = { path = "../../crates/ldp-input" }

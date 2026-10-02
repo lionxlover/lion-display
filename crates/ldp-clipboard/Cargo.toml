@@ -1,0 +1,28 @@
+[package]
+name = "ldp-clipboard"
+description = "LDP clipboard layer: data sources/offers, MIME negotiation, streaming transfers over pipes, primary selection, and the drag-and-drop state machine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the clipboard
+# layer is exchange *policy* over the foundation types (ldp-core: the
+# Limits the transfer registry enforces, the ScopeSet the permission
+# gate consults, ObjectId for the wire surface) and the wire schema
+# (ldp-protocol: the registry the conformance corpus encodes events
+# against). It reads no clock and opens no devices. `libc` provides
+# exactly one audited boundary: `pipe.rs` (pipe2/fcntl/read/write) —
+# the ldp-input/ldp-display sys precedent; every other module is
+# `#![forbid(unsafe_code)]`.
+ldp-core = { path = "../ldp-core" }
+ldp-protocol = { path = "../ldp-protocol" }
+libc = "0.2"
+
+[lints]
+workspace = true

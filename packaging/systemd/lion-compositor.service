@@ -1,0 +1,62 @@
+[Unit]
+Description=Lion Display Protocol reference compositor (LDP server)
+Documentation=file:/usr/share/doc/lion-compositor/admin-guide.md.gz
+Documentation=file:/usr/share/doc/lion-compositor/maturity.md.gz
+After=local-fs.target
+# The protocol service owns no ordering against the display manager at
+# v0.1.0 (the real-hardware pixel path is deliberately staged later);
+# on a headless host it is a plain multi-user service.
+Conflicts=
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lion-compositor --mode auto --quiet
+Restart=on-failure
+RestartSec=2
+
+# v0.1.0 behavior of --mode auto:
+#   * No DRM/KMS access (headless host, container, VM without drivers):
+#     serves the complete LDP protocol (8 modules, 33 interfaces, 210
+#     operations) on the deterministic mock display — the reference
+#     vehicle for clients, operator tools, and CI.
+#   * DRM device present: the process reports the discovered topology
+#     and exits 0 (probe-only scope; Restart=on-failure will NOT loop).
+#     Pixel delivery on real hardware arrives in a later release —
+#     see the maturity matrix shipped in this package.
+#
+# Override mode or flags with a drop-in instead of editing this unit:
+#   systemctl edit lion-compositor
+#     [Service]
+#     ExecStart=
+#     ExecStart=/usr/bin/lion-compositor --mode headless --socket my-ldp
+# (When overriding with --dump DIR, relax ProtectSystem accordingly.)
+
+# --- sandboxing -----------------------------------------------------------
+# The default (headless) service needs no filesystem writes: the
+# abstract-namespace socket lives in the kernel, not on disk, and the
+# mock display is in-memory. Hardening is therefore aggressive.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+# Device policy stays "auto" so the DRM probe in --mode auto can open
+# /dev/dri/* when present; the headless path never touches devices.
+
+[Install]
+WantedBy=multi-user.target

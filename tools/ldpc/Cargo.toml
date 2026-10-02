@@ -1,0 +1,33 @@
+[package]
+name = "ldpc"
+description = "LDP protocol compiler: spec/*.toml to Rust schema tables, introspection blobs, reference docs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "ldpc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ldpc"
+path = "src/main.rs"
+
+[dependencies]
+# TOML parsing is deliberately delegated to the standard `toml` crate instead
+# of a hand-rolled parser: the grammar exercised by the specs (multi-line
+# basic strings, nested array-of-tables, sub-tables like [enum.values]) is
+# exactly where hand-rolled parsers rot. This is a *tooling-only* dependency
+# (CONTRIBUTING.md rule 5: justify every dependency): no LDP runtime crate
+# depends on it, and generated output is committed so ordinary builds of
+# ldp-protocol never invoke ldpc.
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
+
+[lints]
+workspace = true

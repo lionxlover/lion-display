@@ -1,0 +1,29 @@
+[package]
+name = "ldp-power"
+description = "LDP power layer: inhibitor-aware idle stages, DPMS orchestration, flicker-free backlight ramping, and suspend/resume with timeline re-anchoring"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the power layer is
+# pure policy over the foundation types (ldp-core: Mono for the injected
+# clock, RefreshInterval for the re-anchor grid). It reads no clock, no
+# sysfs, no /proc — the host applies the emitted PowerCommand data and
+# reports device state back through the same types. Zero external
+# dependencies, `#![forbid(unsafe_code)]` crate-wide.
+ldp-core = { path = "../ldp-core" }
+
+[dev-dependencies]
+# The re-anchoring exit criterion runs against the real FrameClock PLL
+# from the compositor (the same dev-dep pattern ldp-vrr uses for the
+# mock KMS panel).
+ldp-compositor = { path = "../ldp-compositor" }
+
+[lints]
+workspace = true

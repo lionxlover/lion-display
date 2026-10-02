@@ -1,0 +1,28 @@
+[package]
+name = "clip-client"
+description = "Example: the clipboard client — live availability report plus the full in-process offer/accept/receive negotiation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+ldp-core = { path = "../../crates/ldp-core" }
+ldp-clipboard = { path = "../../crates/ldp-clipboard" }
+ldp-tools = { path = "../../tools/ldp-tools" }
+ldp-transport = { path = "../../crates/ldp-transport" }
+# The pipe seam: SAFETY-commented wrappers only (the ldp-transport
+# precedent for the canonical Linux ABI binding).
+libc = "0.2"
+
+[dev-dependencies]
+# The live-mode scenario checks availability against the Phase 10
+# compositor brought up in-process (the testbench pattern).
+lion-compositor = { path = "../../binaries/lion-compositor" }
+
+[lints]
+workspace = true

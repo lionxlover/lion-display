@@ -1,0 +1,30 @@
+[package]
+name = "ldp-transport"
+description = "LDP transport: AF_UNIX stream sockets, SCM_RIGHTS FD passing, SO_PEERCRED credentials, message framing, and backpressure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): prefer std, then mature
+# widely-audited libraries. `ldp-core` supplies the limits and the error
+# taxonomy. `libc` is the canonical, dependency-free Rust binding for the
+# Linux syscall ABI; hand-rolling `sendmsg`/`cmsg` structs instead would
+# *increase* the amount of reviewed `unsafe` code, not decrease it. Every
+# `unsafe` block in this crate is a syscall wrapper in `sys.rs` with a
+# `SAFETY` comment; all other modules are `#![forbid(unsafe_code)]`.
+ldp-core = { path = "../ldp-core" }
+libc = "0.2"
+
+[dev-dependencies]
+# End-to-end conformance: a real encoded LDP message (with fd arguments)
+# travels over the transport and decodes on the far side.
+ldp-protocol = { path = "../ldp-protocol" }
+
+[lints]
+workspace = true
