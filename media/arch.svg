@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" role="img" aria-label="LDP architecture stack">
+  <title>LDP — the stack</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121820"/>
+      <stop offset="1" stop-color="#0C1016"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="640" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1199" height="639" rx="13.5" fill="none" stroke="#232A35" stroke-width="1"/>
+
+  <!-- header -->
+  <text x="40" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="1" fill="#E6EAF2">The LDP stack</text>
+  <text x="1160" y="40" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#6B7484">safe Rust · 37 in-tree crates · bridges never touch the core</text>
+
+  <!-- row 1 · applications -->
+  <g>
+    <rect x="40" y="62" width="1120" height="54" rx="10" fill="#161C25" stroke="#2A313C"/>
+    <text x="60" y="95" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#E6EAF2">Applications</text>
+    <rect x="250" y="76" width="300" height="26" rx="8" fill="#1A1F27" stroke="#39414D"/>
+    <text x="400" y="93" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#9AA3B2">native — LTK or any language</text>
+    <rect x="570" y="76" width="280" height="26" rx="8" fill="#1A1F27" stroke="#39414D"/>
+    <text x="710" y="93" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#9AA3B2">Wayland apps</text>
+    <rect x="870" y="76" width="270" height="26" rx="8" fill="#1A1F27" stroke="#39414D"/>
+    <text x="1005" y="93" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#9AA3B2">X11 apps</text>
+  </g>
+
+  <!-- row 2 · clients & bridges -->
+  <g>
+    <rect x="40" y="134" width="360" height="66" rx="12" fill="#161C25" stroke="#2A313C"/>
+    <text x="220" y="161" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#E6EAF2">ldp-client</text>
+    <text x="220" y="181" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">the native client library</text>
+
+    <rect x="420" y="134" width="360" height="66" rx="12" fill="#161C25" stroke="#2A313C" stroke-dasharray="5 4"/>
+    <text x="600" y="161" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#E6EAF2">ldp-wayland-bridge</text>
+    <text x="600" y="181" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">optional · out-of-tree process</text>
+
+    <rect x="800" y="134" width="360" height="66" rx="12" fill="#161C25" stroke="#2A313C" stroke-dasharray="5 4"/>
+    <text x="980" y="161" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#E6EAF2">ldp-x11-bridge</text>
+    <text x="980" y="181" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">optional · out-of-tree process</text>
+  </g>
+
+  <!-- row 3 · wire protocol (accent) -->
+  <g>
+    <rect x="40" y="218" width="1120" height="52" rx="10" fill="#12233C" fill-opacity="0.55" stroke="#3385FF" stroke-opacity="0.55"/>
+    <text x="60" y="250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="#E6EAF2">LDP wire protocol</text>
+    <text x="220" y="250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#9AA3B2">ldp-protocol — 9 versioned TOML modules, compiled by ldpc, guarded by the frozen snapshot</text>
+    <text x="1128" y="250" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#7FA8E8">98 requests · 123 events</text>
+  </g>
+
+  <!-- row 4 · compositor -->
+  <g>
+    <rect x="40" y="288" width="1120" height="104" rx="12" fill="#161C25" stroke="#39414D"/>
+    <text x="60" y="318" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="700" fill="#E6EAF2">lion-compositor</text>
+    <text x="190" y="318" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#6B7484">the one graphics authority — the scene, the frame clock, the security gate</text>
+
+    <rect x="60" y="332" width="256" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="188" y="350" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">shell · workspaces · dock</text>
+    <rect x="336" y="332" width="256" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="464" y="350" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">seats · input · grabs</text>
+    <rect x="612" y="332" width="256" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="740" y="350" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">clipboard · drag &amp; drop</text>
+    <rect x="888" y="332" width="252" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="1014" y="350" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">color · HDR · tone map</text>
+
+    <rect x="60" y="366" width="256" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="188" y="384" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">VRR · power · PSR</text>
+    <rect x="336" y="366" width="256" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="464" y="384" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">capability security · audit</text>
+    <rect x="612" y="366" width="256" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="740" y="384" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">accessibility</text>
+    <rect x="888" y="366" width="252" height="28" rx="8" fill="#1A1F27" stroke="#2A313C"/>
+    <text x="1014" y="384" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">session · logind · supervisor</text>
+  </g>
+
+  <!-- row 5 · foundations -->
+  <g>
+    <rect x="40" y="410" width="265" height="66" rx="12" fill="#161C25" stroke="#2A313C"/>
+    <text x="172" y="437" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="600" fill="#E6EAF2">ldp-renderer</text>
+    <text x="172" y="457" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">GL ES · software</text>
+
+    <rect x="325" y="410" width="265" height="66" rx="12" fill="#161C25" stroke="#2A313C"/>
+    <text x="457" y="437" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="600" fill="#E6EAF2">ldp-gpu</text>
+    <text x="457" y="457" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">DMA-BUF · fences</text>
+
+    <rect x="610" y="410" width="265" height="66" rx="12" fill="#161C25" stroke="#2A313C"/>
+    <text x="742" y="437" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="600" fill="#E6EAF2">ldp-display</text>
+    <text x="742" y="457" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">DRM/KMS · atomic modeset</text>
+
+    <rect x="895" y="410" width="265" height="66" rx="12" fill="#161C25" stroke="#2A313C"/>
+    <text x="1027" y="437" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="600" fill="#E6EAF2">ldp-transport</text>
+    <text x="1027" y="457" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#6B7484">AF_UNIX · FD passing</text>
+  </g>
+
+  <!-- kernel boundary -->
+  <line x1="40" y1="496" x2="1160" y2="496" stroke="#2A313C" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="600" y="490" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="10.5" letter-spacing="2" fill="#4A5464">USER SPACE ↑ · KERNEL ↓</text>
+
+  <!-- row 6 · linux slab -->
+  <g>
+    <rect x="40" y="510" width="1120" height="50" rx="10" fill="#141A22" stroke="#232A35"/>
+    <text x="60" y="541" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="600" fill="#9AA3B2">Linux</text>
+    <text x="130" y="541" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#6B7484">logind · evdev · DRM/KMS · DMA-BUF · sysfs · systemd</text>
+  </g>
+
+  <!-- footnote -->
+  <text x="40" y="596" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#4A5464">Bridges speak real Wayland and real X11 subsets as separate processes — the LDP core never links them, never inherits their bugs.</text>
+  <text x="40" y="616" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#4A5464">Every module of the wire surface lives in reviewable TOML and is compiled into type-safe Rust by ldpc — the snapshot gate freezes it between releases.</text>
+</svg>

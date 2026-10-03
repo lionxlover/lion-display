@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="LDP banner">
+  <title>LDP — Lion Display Protocol</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121820"/>
+      <stop offset="1" stop-color="#0C1016"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.1" r="0.9">
+      <stop offset="0" stop-color="#3385FF" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#3385FF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#3385FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="scan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3385FF" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#3385FF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- panel -->
+  <rect x="0" y="0" width="1280" height="320" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1279" height="319" rx="13.5" fill="none" stroke="#232A35" stroke-width="1"/>
+  <rect x="0" y="0" width="1280" height="320" rx="14" fill="url(#glow)"/>
+
+  <!-- faint scene layers, right field -->
+  <g stroke="#2A313C" fill="none">
+    <rect x="1000" y="52" width="200" height="130" rx="12" opacity="0.55"/>
+    <rect x="1030" y="82" width="200" height="130" rx="12" opacity="0.75"/>
+    <rect x="1060" y="112" width="200" height="130" rx="12" opacity="1"/>
+  </g>
+  <rect x="1074" y="112" width="172" height="26" rx="8" fill="#232A35" opacity="0.9"/>
+  <rect x="1230" y="118" width="14" height="14" rx="7" fill="#E2654E" opacity="0.9"/>
+  <rect x="1078" y="152" width="88" height="10" rx="5" fill="#3385FF" opacity="0.65"/>
+  <rect x="1078" y="170" width="126" height="8" rx="4" fill="#2A313C"/>
+  <rect x="1078" y="186" width="104" height="8" rx="4" fill="#2A313C"/>
+
+  <!-- mark -->
+  <g transform="translate(64,96)">
+    <rect x="2" y="2" width="124" height="124" rx="30" fill="#141A22"/>
+    <rect x="2.5" y="2.5" width="123" height="123" rx="29.5" fill="none" stroke="#2A313C" stroke-width="1"/>
+    <rect x="29" y="29" width="70" height="70" rx="12" fill="#1A1F27" stroke="#39414D" stroke-width="1.5"/>
+    <path d="M41 29 h46 a12 12 0 0 1 12 12 v11 h-70 v-11 a12 12 0 0 1 12 -12 z" fill="#232A35"/>
+    <path d="M29 52 h70" stroke="#2A313C" stroke-width="1"/>
+    <rect x="82" y="35" width="12" height="12" rx="6" fill="#E2654E"/>
+    <rect x="50" y="60" width="10" height="30" rx="3" fill="#3385FF"/>
+    <rect x="50" y="80" width="28" height="10" rx="3" fill="#3385FF"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="238" y="156" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="700" letter-spacing="3" fill="#E6EAF2">LDP</text>
+  <text x="240" y="192" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="600" letter-spacing="6" fill="#9AA3B2">LION DISPLAY PROTOCOL</text>
+  <text x="240" y="226" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#6B7484">The display server &amp; compositor for LionOS — safe Rust · deterministic frames · capability security</text>
+
+  <!-- scanline sweep -->
+  <rect x="240" y="246" width="360" height="3" rx="1.5" fill="url(#scan)"/>
+
+  <!-- version chip -->
+  <g>
+    <rect x="1012" y="248" width="212" height="34" rx="10" fill="#161C25" stroke="#2A313C"/>
+    <circle cx="1032" cy="265" r="4" fill="#3385FF"/>
+    <text x="1046" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#9AA3B2">v0.25.0 · the chrome ghost</text>
+  </g>
+</svg>

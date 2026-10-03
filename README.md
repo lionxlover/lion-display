@@ -1,6 +1,19 @@
 # LDP — Lion Display Protocol
 
+<p align="center">
+  <img src="media/banner.svg" alt="LDP — the Lion Display Protocol banner: the mark, the wordmark, a drawn-chrome window">
+</p>
+
 **A modern, first-principles display protocol and server ecosystem for LionOS.**
+
+<p align="center">
+  <a href="https://lionxlover.github.io/lion-display/"><img src="https://img.shields.io/badge/site-lionxlover.github.io%2Flion--display-3385FF?style=flat-square" alt="Project website"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-v0.25.0-2EA043?style=flat-square" alt="v0.25.0 — the chrome ghost"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/tests-2%2C327%20passing-1F6FEB?style=flat-square" alt="2,327 tests passing"></a>
+  <a href="spec/"><img src="https://img.shields.io/badge/wire%20surface-frozen%20%C2%B7%2098%20req%20%C2%B7%20123%20events-8B93A3?style=flat-square" alt="Frozen wire surface"></a>
+  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/rust-safe%20Rust-DEA584?style=flat-square&logo=rust" alt="Safe Rust"></a>
+  <a href="LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-3DA639?style=flat-square" alt="MIT OR Apache-2.0"></a>
+</p>
 
 LDP is the native graphics and input stack of [LionOS](https://lionos.example) — a
 macOS- and Cutefish-OS-inspired desktop Linux distribution. It is an independent
@@ -13,24 +26,46 @@ LDP is **not** a Wayland fork, rename, or re-implementation. Existing Wayland an
 X11 applications run through optional, out-of-tree bridge processes
 (`ldp-wayland-bridge`, `ldp-x11-bridge`) that never contaminate the LDP core.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Applications:  native (LTK or any language) · Wayland · X11     │
-├────────────────┬─────────────────────┬────────────────────────────┤
-│  native client │ ldp-wayland-bridge  │ ldp-x11-bridge             │
-│  (ldp-client)  │ (optional process)  │ (optional process)         │
-├────────────────┴─────────────────────┴────────────────────────────┤
-│                     LDP wire protocol (ldp-protocol)             │
-├──────────────────────────────────────────────────────────────────┤
-│  lion-compositor: shell · seats · input · clipboard · color/HDR  │
-│  · VRR policy · capability security · a11y · power/session       │
-├──────────────────────────────────────────────────────────────────┤
-│  renderer (GL / software) · gpu (DMA-BUF, fences) · display      │
-│  (DRM/KMS atomic) · transport (Unix sockets + FD passing)        │
-├──────────────────────────────────────────────────────────────────┤
-│  Linux: logind · evdev · DRM/KMS · DMA-BUF · sysfs · systemd     │
-└──────────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="media/arch.svg" alt="The LDP stack: applications above the bridged compat processes, the LDP wire protocol, the lion-compositor, the foundation crates, and the Linux base">
+</p>
+
+## The desktop, drawn
+
+Every server-decorated window carries chrome the compositor itself paints:
+the caption band, the border ring, the close capsule, and the title set in
+**Lion Sans** — the compositor's own typeface, rasterized by its own
+analytic-coverage engine. The client never draws its own frame, so every
+window on a LionOS desktop is readable, grippable, and closable from the
+very first frame it serves — and the whole vocabulary (the press that arms,
+the release that fires, the drag-away that cancels) is proven over the real
+socket, byte for byte, the same way the rest of the machine is.
+
+<p align="center">
+  <img src="media/ui-chrome.svg" alt="A lion-compositor desktop: two server-decorated windows in a cascade, each with the drawn caption band, title glyphs, and close capsule, above the frosted dock — annotated">
+</p>
+
+The caption band is the move grip. Pressing it mints a server-truth move at
+the pointer's first motion — one machinery with the protocol's `start_move`,
+two doors — so the window follows the hand at the input pump's own cadence
+with zero configures in flight, and the maximized window demotes under the
+grip over the frame. Placement answers in frame space: a parked window's
+band renders from row 0, the cascade steps captions, and at fractional
+scale factors the physical clamp holds the band's top edge against the
+panel, pixel-true. When a window dies it leaves as one — band, title strip,
+and content riding a single close-spring together (the chrome ghost).
+
+At the Liquid tier the band wears the system's own glass: the same material
+the dock wears, one truth for all system chrome. The frost pane genuinely
+reads the composed canvas beneath it — blurred, desaturated, veiled — with a
+readability floor that keeps the title legible over any backdrop, and the
+effect is tiered (`--effects minimal|low|medium|high`) so weak hardware
+keeps the flat bar while strong hardware serves a desktop of glass bands
+straight from the frost memo cache, byte-identical across renderers.
+
+<p align="center">
+  <img src="media/ui-liquid.svg" alt="The Liquid band: a window whose frosted caption reads a warm and a cool backdrop beneath it, with the four effects tiers compared at the bottom">
+</p>
 
 ## Design pillars
 
@@ -56,6 +91,10 @@ X11 applications run through optional, out-of-tree bridge processes
 6. **One protocol, many modules.** The core is small; shell, input, data exchange,
    color, security, accessibility and session form versioned modules described in
    reviewable TOML specifications and compiled into type-safe Rust code by `ldpc`.
+
+<p align="center">
+  <img src="media/pipeline.svg" alt="The LDP frame pipeline: the server pushes a frame_target deadline, the client renders against it, the buffer attaches with a fence, damage coalesces, the scheduler plans the frame, the compositor composites, and the atomic flip lands on the vblank">
+</p>
 
 ## Feature matrix (target v1.0)
 
@@ -1167,6 +1206,9 @@ version across every surface asserted by the release-coherence gate:
 
 ## Documentation
 
+* **[Project website](https://lionxlover.github.io/lion-display/)** — the
+  live site served from this repository's `index.html` (GitHub → Settings →
+  Pages → Deploy from a branch → root).
 * [`docs/user-guide.md`](docs/user-guide.md) — running the compositor,
   the operator tools, the examples, and writing the first native
   client.

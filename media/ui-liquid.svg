@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" width="1200" height="680" role="img" aria-label="LDP Liquid glass chrome">
+  <title>LDP — the Liquid band (frosted glass chrome)</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121820"/>
+      <stop offset="1" stop-color="#0C1016"/>
+    </linearGradient>
+    <linearGradient id="tiers" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E06A4B"/>
+      <stop offset="0.35" stop-color="#E8A94B"/>
+      <stop offset="0.7" stop-color="#4A86FF"/>
+      <stop offset="1" stop-color="#3EDBF0"/>
+    </linearGradient>
+    <filter id="frost" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feColorMatrix in="b" type="saturate" values="0.6"/>
+    </filter>
+    <filter id="winShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="bandClip">
+      <path d="M252 150 h516 a12 12 0 0 1 12 12 v30 h-540 v-30 a12 12 0 0 1 12 -12 z"/>
+    </clipPath>
+  </defs>
+
+  <!-- panel -->
+  <rect x="0" y="0" width="1200" height="680" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1199" height="679" rx="13.5" fill="none" stroke="#232A35" stroke-width="1"/>
+
+  <!-- header -->
+  <text x="40" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="1" fill="#E6EAF2">The Liquid band — the chrome wears glass</text>
+  <text x="1160" y="40" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#6B7484">the chrome material is the dock's own — one glass for all system chrome</text>
+
+  <!-- backdrop ink (visible left and right of the window) -->
+  <rect x="60" y="60" width="260" height="220" rx="30" fill="#E06A4B" opacity="0.85"/>
+  <rect x="620" y="60" width="500" height="220" rx="30" fill="#4A86FF" opacity="0.85"/>
+  <text x="150" y="304" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" fill="#6B7484">a warm window beneath</text>
+  <text x="870" y="304" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" fill="#6B7484">a cool window beneath</text>
+
+  <!-- the window -->
+  <g filter="url(#winShadow)">
+    <rect x="240" y="150" width="540" height="360" rx="12" fill="#1A1F27" stroke="#39414D" stroke-width="1.5"/>
+  </g>
+
+  <!-- the frost: a blurred, desaturated copy of the backdrop, clipped to the band -->
+  <g clip-path="url(#bandClip)" filter="url(#frost)">
+    <rect x="60" y="60" width="260" height="220" rx="30" fill="#E06A4B" opacity="0.85"/>
+    <rect x="620" y="60" width="500" height="220" rx="30" fill="#4A86FF" opacity="0.85"/>
+  </g>
+  <!-- the veil: the readability floor -->
+  <path d="M252 150 h516 a12 12 0 0 1 12 12 v30 h-540 v-30 a12 12 0 0 1 12 -12 z" fill="#141920" fill-opacity="0.55"/>
+  <!-- the chrome hairline -->
+  <path d="M256 151.5 H764" stroke="#E6EAF2" stroke-opacity="0.22" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- title + capsule -->
+  <text x="258" y="200" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="600" fill="#F0F3F8">Alpha — Liquid</text>
+  <circle cx="742" cy="192" r="15" fill="#E2654E"/>
+  <path d="M736 186 l12 12 M748 186 l-12 12" stroke="#16181D" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- content -->
+  <text x="276" y="268" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="700" fill="#E6EAF2">the pane reads the canvas</text>
+  <rect x="276" y="290" width="330" height="10" rx="5" fill="#2A313C"/>
+  <rect x="276" y="312" width="288" height="10" rx="5" fill="#2A313C"/>
+  <rect x="276" y="354" width="176" height="40" rx="10" fill="#3385FF"/>
+  <text x="364" y="379" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">--effects high</text>
+  <rect x="480" y="354" width="176" height="40" rx="10" fill="#20262F" stroke="#39414D"/>
+  <text x="568" y="379" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#9AA3B2">--effects minimal</text>
+
+  <!-- callout chips -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600">
+    <circle cx="255" cy="224" r="11" fill="#0F1319" stroke="#3385FF" stroke-width="1.5"/>
+    <text x="255" y="228" text-anchor="middle" fill="#7FA8E8">1</text>
+    <circle cx="480" cy="171" r="11" fill="#0F1319" stroke="#3385FF" stroke-width="1.5"/>
+    <text x="480" y="175" text-anchor="middle" fill="#7FA8E8">2</text>
+    <circle cx="760" cy="142" r="11" fill="#0F1319" stroke="#3385FF" stroke-width="1.5"/>
+    <text x="760" y="146" text-anchor="middle" fill="#7FA8E8">3</text>
+    <circle cx="798" cy="340" r="11" fill="#0F1319" stroke="#3385FF" stroke-width="1.5"/>
+    <text x="798" y="344" text-anchor="middle" fill="#7FA8E8">4</text>
+    <circle cx="1085" cy="150" r="11" fill="#0F1319" stroke="#3385FF" stroke-width="1.5"/>
+    <text x="1085" y="154" text-anchor="middle" fill="#7FA8E8">5</text>
+  </g>
+
+  <!-- legend -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" fill="#9AA3B2">
+    <text x="860" y="390"><tspan fill="#7FA8E8" font-weight="700">1</tspan>  the frost — blur · desaturate · veil</text>
+    <text x="860" y="414"><tspan fill="#7FA8E8" font-weight="700">2</tspan>  the readability floor — the ink always wins</text>
+    <text x="860" y="438"><tspan fill="#7FA8E8" font-weight="700">3</tspan>  the chrome hairline · the rounded frame</text>
+    <text x="860" y="462"><tspan fill="#7FA8E8" font-weight="700">4</tspan>  content rides above the glass</text>
+    <text x="860" y="486"><tspan fill="#7FA8E8" font-weight="700">5</tspan>  warm warms the pane · cool cools it</text>
+  </g>
+
+  <!-- the effects tiers -->
+  <text x="40" y="526" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#9AA3B2">The effects tiers — one backdrop, four depths of glass</text>
+  <rect x="40" y="540" width="1120" height="104" rx="12" fill="url(#tiers)" opacity="0.9"/>
+
+  <!-- Minimal -->
+  <path d="M60 560 A10 10 0 0 1 70 550 H230 A10 10 0 0 1 240 560 V576 H60 Z" fill="#1A1F27"/>
+  <path d="M60 576 V632 A10 10 0 0 0 70 642 H230 A10 10 0 0 0 240 632 V576 Z" fill="#1A1F27"/>
+  <circle cx="222" cy="563" r="5" fill="#E2654E"/>
+  <text x="150" y="664" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">Minimal — the flat bar</text>
+
+  <!-- Low -->
+  <path d="M360 560 A10 10 0 0 1 370 550 H530 A10 10 0 0 1 540 560 V576 H360 Z" fill="#1A1F27" fill-opacity="0.82"/>
+  <path d="M360 576 V632 A10 10 0 0 0 370 642 H530 A10 10 0 0 0 540 632 V576 Z" fill="#1A1F27"/>
+  <circle cx="522" cy="563" r="5" fill="#E2654E"/>
+  <text x="450" y="664" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">Low</text>
+
+  <!-- Medium -->
+  <path d="M660 560 A10 10 0 0 1 670 550 H830 A10 10 0 0 1 840 560 V576 H660 Z" fill="#1A1F27" fill-opacity="0.6"/>
+  <path d="M660 576 V632 A10 10 0 0 0 670 642 H830 A10 10 0 0 0 840 632 V576 Z" fill="#1A1F27"/>
+  <circle cx="822" cy="563" r="5" fill="#E2654E"/>
+  <text x="750" y="664" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">Medium</text>
+
+  <!-- High -->
+  <path d="M960 560 A10 10 0 0 1 970 550 H1130 A10 10 0 0 1 1140 560 V576 H960 Z" fill="#1A1F27" fill-opacity="0.38"/>
+  <path d="M960 576 V632 A10 10 0 0 0 970 642 H1130 A10 10 0 0 0 1140 632 V576 Z" fill="#1A1F27"/>
+  <path d="M964 551.5 H1136" stroke="#E6EAF2" stroke-opacity="0.25" stroke-width="1.2"/>
+  <circle cx="1122" cy="563" r="5" fill="#E2654E"/>
+  <text x="1050" y="664" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#9AA3B2">High — full frost</text>
+</svg>
+6"
