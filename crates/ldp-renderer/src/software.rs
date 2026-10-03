@@ -175,6 +175,17 @@ impl SoftwareRenderer {
         self.style.shadows.rebuilds()
     }
 
+    /// How many frost materials were built since construction (the
+    /// Phase 55 thrash oracle, the shadow counter's own doctrine): a
+    /// steady re-render of the same scene must not grow it. A desktop
+    /// of Liquid bands is a desktop of frost panes — this counter is
+    /// what proves the memo's budget holds the whole working set
+    /// resident instead of evict-and-rebuild every frame.
+    #[must_use]
+    pub fn frost_rebuilds(&self) -> u64 {
+        self.style.frost.rebuilds()
+    }
+
     /// Clear the framebuffer to one premultiplied color during a frame.
     ///
     /// # Errors
@@ -434,6 +445,12 @@ impl Renderer for SoftwareRenderer {
         self.style
             .shadows
             .set_budget_words(pixels.saturating_mul(2));
+        // Phase 55: the frost memo rides the same output-scaled
+        // doctrine — one pane retains four buffers over its rect (the
+        // saved backdrop, the material, the blur ping-pong pair), so
+        // the budget counts the true footprint (the shadow's x2 is
+        // per-material words; the frost's x4 is per-entry).
+        self.style.frost.set_budget_words(pixels.saturating_mul(4));
         // Damage is clipped to the output once; the row index serves each
         // row's merged intervals to every layer (Phase 22 — the per-layer
         // rescan of every damage rect is gone).
@@ -863,5 +880,76 @@ mod tests {
         assert_eq!(stats[1], stats[2], "steady stats");
         assert_eq!(stats[2].layers, 6);
         assert_eq!(stats[2].layers_rendered, 6);
+    }
+
+    /// Phase 55's thrash oracle: a desktop of Liquid bands is a desktop
+    /// of frost panes — five dressed bands over one backdrop — and the
+    /// grown frost memo ([`SoftwareRenderer::frost_rebuilds`]) holds
+    /// the whole working set resident: the first frame builds each
+    /// pane once, every steady frame after serves the memo (the Phase
+    /// 29 two-entry memo would have evicted-and-rebuilt four of the
+    /// five every frame — the fixed-cap regression the shadow's Phase
+    /// 30 budget closed, reborn).
+    #[test]
+    fn a_desktop_of_liquid_bands_does_not_thrash_the_frost_memo() {
+        use crate::style::EffectTier;
+        let (w, h) = (640u32, 480u32);
+        let output = xrgb_output(w, h);
+        let (paper_data, paper_geom) = crate::testkit::pattern_buffer(w, h, FourCC::XRGB8888);
+        let (band_data, band_geom) = crate::testkit::pattern_buffer(240, 44, FourCC::ARGB8888);
+        let damage = crate::testkit::full_damage(&output);
+        // The Sheet material at Medium (the chrome material's own
+        // backdrop tier): a real blur, a real veil — a real pane.
+        let style = EffectTier::Medium.translucent_style();
+        let build_layers = || {
+            let mut layers: Vec<SurfaceLayer<'_>> = Vec::with_capacity(6);
+            let paper = crate::view::BufferView::new(1, &paper_data, paper_geom.clone()).unwrap();
+            let mut under = SurfaceLayer::new(
+                paper,
+                Rect::new(0, 0, w, h),
+                ldp_core::geometry::Transform::Normal,
+                ColorDescription::srgb_sdr(),
+                1.0,
+                Region::from_rect(Rect::new(0, 0, w, h)),
+            );
+            under.style = crate::style::LayerStyle::default();
+            layers.push(under);
+            // Five band-shaped panes at distinct placements (distinct
+            // dests, distinct memo entries — the desktop of windows).
+            for i in 0..5i32 {
+                let view = crate::view::BufferView::new(2, &band_data, band_geom.clone()).unwrap();
+                let mut layer = SurfaceLayer::new(
+                    view,
+                    Rect::new(24 + i * 60, 32 + i * 88, 240, 44),
+                    ldp_core::geometry::Transform::Normal,
+                    ColorDescription::srgb_sdr(),
+                    1.0,
+                    Region::from_rect(Rect::new(0, 0, 240, 44)),
+                );
+                layer.style = style;
+                layers.push(layer);
+            }
+            layers
+        };
+        // Three frames through one renderer; the counter must rise by
+        // exactly five on the first and never again.
+        let mut r = SoftwareRenderer::new();
+        let mut frames = Vec::new();
+        let mut rebuilds = Vec::new();
+        for _ in 0..3 {
+            let layers = build_layers();
+            r.begin_frame(&output, &damage).unwrap();
+            r.submit(&layers).unwrap();
+            r.end_frame().unwrap();
+            frames.push(r.readout().to_vec());
+            rebuilds.push(r.frost_rebuilds());
+        }
+        assert_eq!(rebuilds[0], 5, "the first frame builds the five panes");
+        assert_eq!(
+            rebuilds[1], 5,
+            "the second frame builds nothing (no thrash)"
+        );
+        assert_eq!(rebuilds[2], 5, "the steady state stays flat");
+        assert_eq!(frames[1], frames[2], "steady bytes");
     }
 }

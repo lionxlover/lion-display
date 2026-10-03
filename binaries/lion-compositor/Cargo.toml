@@ -40,6 +40,7 @@ ldp-compositor = { path = "../../crates/ldp-compositor" }
 ldp-renderer = { path = "../../crates/ldp-renderer" }
 ldp-display = { path = "../../crates/ldp-display" }
 ldp-planes = { path = "../../crates/ldp-planes" }
+ldp-font = { path = "../../crates/ldp-font" }
 ldp-shell = { path = "../../crates/ldp-shell" }
 ldp-hdr = { path = "../../crates/ldp-hdr" }
 ldp-power = { path = "../../crates/ldp-power" }
@@ -54,7 +55,12 @@ libc = "0.2"
 [dev-dependencies]
 # The integration suites drive the slice with the real client library
 # over a real transport — the end-to-end Phase 10 exit criterion.
+# ldp-font and ldp-renderer serve the title oracle's honesty: the
+# tests rasterize the expected strip with the same face and blend it
+# with the renderer's own over-rule — zero drift by construction.
 ldp-client = { path = "../../crates/ldp-client" }
+ldp-font = { path = "../../crates/ldp-font" }
+ldp-renderer = { path = "../../crates/ldp-renderer" }
 
 [lints]
 workspace = true

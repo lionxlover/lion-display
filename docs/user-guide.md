@@ -914,6 +914,171 @@ server-side close ask (session policy, the future window menu),
 the `close` event arrives the same way — the event is toplevel
 vocabulary, not SSD vocabulary: any toplevel can receive it.
 
+## 3.18 The Liquid band: the title bar's glass
+
+Since v0.23.0 the drawn title bar wears the system's own glass: at
+any effects tier above `minimal` (§3.8), the band is a *frosted
+pane* — the chrome material, the same glass the dock wears —
+sampling what sits beneath it, blurring it, and veiling it in the
+system's light tint, with the chrome hairline catching the light on
+the frame's top edge and the window's corners rounded like every
+glass pane. Nothing changes for your client:
+
+```text
+# the whole story is the server's (frozen protocol, unchanged):
+#   --effects low|medium|high  → the band is glass
+#   --effects minimal          → the band is the flat bar (v0.22 bytes)
+```
+
+The behaviors your users will see:
+
+* **The glass reads the desktop**: a red window sliding under the
+  band warms it, a blue one cools it, the blur mixing the boundary
+  between them — the title bar is genuinely backdrop-dependent, the
+  same frost the menu and sheet materials serve.
+* **The readability floor**: the band's own veil anchors the
+  lightness — over any backdrop the bar stays light and the dark
+  title ink keeps its contrast; the title text, the border ring,
+  and the close capsule are as crisp as ever.
+* **The content rides above the pane**: your window's buffer draws
+  over the glass — opaque content is pixel-identical to the
+  undressed render (only the band, the ring, and the frame's
+  corners carry the material).
+* **`minimal` is honest**: the flat bar every Phase 52-54 oracle
+  pinned, byte-identical — the quality budget degrades the look,
+  never the truth.
+
+## 3.19 The chrome-aware placement: the caption is always on-screen
+
+Since v0.24.0 the placement engine answers in *frame* space: a
+server-decorated window parks with its **frame** — the band and the
+border ring included — at the policy slot, the content riding
+inside. Your users will never see a title bar clipped off the top
+of the screen, wherever the system places the window:
+
+```text
+# the client's whole story (frozen protocol, unchanged):
+#   nothing — the placement is the server's own geometry
+```
+
+The behaviors your users will see:
+
+* **The parked window's band is visible**: a window the system
+  places at the usable origin (the first cascade slots, the phone's
+  app stack) shows its caption from row 0 of the display — the
+  title readable, the close button reachable, the drag grip live.
+* **The cascade steps captions**: each new window's *title bar*
+  takes the diagonal step — the stack reads like every desktop a
+  user has ever used (DWM and WindowServer both answer this way).
+* **Plain and client-decorated windows never moved**: a surface
+  without the drawn chrome keeps the exact pre-v0.24.0 placement
+  (its content is its whole window — nothing to grow), proven by
+  the identity sweep in the layout's own tests.
+* **Migrations keep the caption visible**: a display hotplug
+  re-places the stack with the frame inside the new usable area; a
+  fullscreen window (zero insets) migrates as plain geometry.
+* **Presses follow the visible ink**: a band that sits over another
+  window's content claims the press for its own window (focusing
+  it, gripping it) — never for the hidden ink beneath it.
+
+## 3.17 The title glyph: the drawn text in the band
+
+Since v0.22.0 the drawn title bar carries its text: the string
+your client set with `set_title` renders as real glyphs — Lion
+Sans, the compositor's own typeface — over the band Phase 52
+painted. Nothing changes for your client beyond one honest
+expectation: the title is now *visible*.
+
+```text
+# the client's whole story (frozen protocol, unchanged):
+toplevel.set_title("Image Viewer")   # any time, before or after mapping
+# ... the band renders: [ Image Viewer              ( × ) ]
+```
+
+The behaviors your users will see:
+
+* **The truncation**: a title wider than the band's budget (the
+  frame minus the close button's territory) ends in an ellipsis —
+  `Image Viewer — Deep...` never spills onto the close affordance,
+  never wraps, never scrolls. The decision is pixel-true (the
+  measured widths, never a character count).
+* **The change**: `set_title` at any time repaints the strip on
+  the next frame — no commit, no damage, nothing else required of
+  the client (the repaint is the server's own claim).
+* **The honest boxes**: the typeface covers ASCII and the
+  ellipsis; anything else draws the notdef box (a visible hollow
+  rectangle — truthful, never garbage); control characters draw
+  blanks.
+* **CSD windows** draw no server title (the buffer's top is the
+  client's own chrome, as ever); **fullscreen** covers the band
+  and the title with it.
+
+## 3.16 The caption drag: moving windows by their title bar
+
+Since v0.21.0 the drawn title bar is a *move grip*: the operator
+presses anywhere on the band (outside the close button), moves,
+and the window follows — the server mints the move drag itself,
+no request ever crossing the wire. Nothing changes for your
+client:
+
+```text
+# the operator's narrative — the whole story is server-side:
+#   press on the band     → armed (consumed, the window focuses)
+#   first motion          → the server mints the move drag
+#   every motion batch    → the window moves (server truth)
+#   release               → the drag ends, the geometry stands
+# your client sees: nothing. No button, no motion while the
+#   grip is held, no configure — position is server truth.
+```
+
+The doctrines your client can rely on: a *press without motion
+never drags* (a click on the band is the Phase 52 behavior —
+focus only), the move never proposes a configure (the position
+applies server-side at the input pump's cadence; only a
+*maximized* window dragged out by its caption sees one — the
+demotion's floating-size restore, acked and committed at your
+own cadence, never tearing), and the close button's own grip
+never becomes a move (its press-drag-release is the cancel, not
+a drag). Client-decorated windows see none of this either way:
+your buffer's top is your own title bar, your presses route to
+you, and moving your window remains `start_move` — the
+interactive-drag request your own title bar serves (§3.14's
+drag vocabulary, the same machinery two doors away).
+
+## 3.20 The chrome ghost: the whole window leaves as one
+
+Since v0.25.0 the close fade takes the whole window: when a
+server-decorated window leaves the desktop, its band and title
+ride the same fade as its content — one frame, one opacity, one
+spring. Before this release the choreography told half a story:
+the content faded under the Phase 48 ghost while the drawn band
+left with the route, one abrupt frame. Now:
+
+```text
+# the operator's narrative (the close fade, --transitions on):
+#   the window dies          → the ghost begins: band, strip, content
+#   every frame              → the whole frame dims together
+#   the settle               → the plain post-destroy desktop
+# A/B: the settled frame equals the same destroy with
+#   transitions off, byte for byte — the fade is pure choreography.
+```
+
+What your client can rely on: the fade is server-side (nothing
+crosses the wire — the destroy or the unmapping commit you
+already send is the whole story), the eligibility is the Phase 48
+doctrine verbatim (popups and ephemeral roles dismiss instantly,
+a hidden window leaves no ghost, and with transitions off — the
+library default — the destroy is plain, the band leaving with the
+route as it always has), and the settled desktop is the
+never-animated bytes (the A/B oracle, byte for byte). At a Liquid
+tier the fading band keeps its glass until the settle: the frost
+still reads the desktop behind it — a window leaving in glass,
+not in pieces.
+
+Client-decorated windows are untouched: your buffer's top is
+your own title bar, and your close fade is the content ghost
+alone, exactly as Phase 48 served it.
+
 ## 4. Sockets and discovery
 
 LDP transports run over abstract-namespace AF_UNIX sockets (no

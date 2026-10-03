@@ -234,8 +234,11 @@ fn ssd_window(tb: &Testbench, client: &mut TestClient, fill: u32, nth: usize) ->
     }
     // The cascade's `nth` step (24 px per step, the first at the
     // origin): the third window's frame sits fully on-screen.
+    // Phase 56 — the chrome-aware placement: the frame takes the
+    // slot; the content rides inside at the slot + insets (the band
+    // on-screen from the first frame).
     let step = 24 * nth as i32;
-    assert_eq!(position_of(tb, &surface), (step, step));
+    assert_eq!(position_of(tb, &surface), (step + 1, step + 29));
     (surface, toplevel)
 }
 
@@ -360,10 +363,10 @@ fn the_drawn_close_button_asks_and_the_client_answers() {
     let _w2 = map_plain(&tb, &mut client, xrgb(40, 80, 200), 200, 100);
     let (w3, t3) = ssd_window(&tb, &mut client, xrgb(30, 140, 150), 2);
 
-    // The close button: the frame (47, 19, 202, 131) carries it at
-    // (224, 24, 20, 20) — the center (234, 34) is over no content
+    // The close button: the frame (48, 48, 202, 131) carries it at
+    // (225, 53, 20, 20) — the center (235, 63) is over no content
     // (the band is nobody's ink but the chrome's).
-    let (cx, cy) = (234i32, 34i32);
+    let (cx, cy) = (235i32, 63i32);
     move_to(&tb, cx, cy);
     // The press: consumed (the client's pointer never learns it), the
     // window focused (the activation bit riding its proposal).
@@ -417,7 +420,7 @@ fn the_drawn_close_button_asks_and_the_client_answers() {
     // The surface's own ink remains (it outlived its role).
     let words = tb.scanout();
     assert_eq!(
-        word(&words, 100, 100),
+        word(&words, 101, 100),
         opaque(xrgb(30, 140, 150)),
         "the content stays"
     );
@@ -437,7 +440,7 @@ fn the_drag_away_cancels_the_close_ask() {
     let (_w3, t3) = ssd_window(&tb, &mut client, xrgb(30, 140, 150), 2);
 
     // Armed on the button...
-    move_to(&tb, 234, 34);
+    move_to(&tb, 235, 63);
     button(&tb, true);
     // ...dragged away (out of the band, onto the window's own
     // content)...
@@ -452,7 +455,7 @@ fn the_drag_away_cancels_the_close_ask() {
 
     // The next true click fires (the grip re-arms — a cancelled ask
     // never poisons the affordance).
-    move_to(&tb, 234, 34);
+    move_to(&tb, 235, 63);
     button(&tb, true);
     button(&tb, false);
     client.sync();
@@ -475,7 +478,7 @@ fn the_client_that_ignores_the_close_keeps_its_window() {
     let (w3, t3) = ssd_window(&tb, &mut client, xrgb(30, 140, 150), 2);
 
     // The ask fires.
-    move_to(&tb, 234, 34);
+    move_to(&tb, 235, 63);
     button(&tb, true);
     button(&tb, false);
     client.sync();
@@ -485,12 +488,12 @@ fn the_client_that_ignores_the_close_keeps_its_window() {
     // chrome still serving) — "when ready" is the client's truth.
     assert!(role_serves(&tb, &w3));
     let words = tb.scanout();
-    assert_eq!(word(&words, 100, 100), opaque(xrgb(30, 140, 150)));
-    assert_eq!(word(&words, 150, 22), band_word());
+    assert_eq!(word(&words, 101, 100), opaque(xrgb(30, 140, 150)));
+    assert_eq!(word(&words, 224, 51), band_word());
 
     // The desktop keeps working: a press on the *content* routes
     // normally (the client's own ink — delivered, no zombie).
-    move_to(&tb, 100, 100);
+    move_to(&tb, 101, 100);
     button(&tb, true);
     wait_for_buttons(&mut client, pointer.id().as_u32(), 1);
     button(&tb, false);
@@ -511,7 +514,7 @@ fn the_title_band_press_focuses_without_delivery() {
 
     // A press in the band's middle (over the second window's content
     // underneath — the chrome is on top, the chrome claims it).
-    move_to(&tb, 150, 20);
+    move_to(&tb, 151, 51);
     let before = count_on(&client, "configure", t3.id().as_u32());
     button(&tb, true);
     client.sync();
@@ -661,46 +664,47 @@ fn the_chrome_ink_renders_around_the_content() {
     let _w2 = map_plain(&tb, &mut client, xrgb(40, 80, 200), 200, 100);
     let (w3, t3) = ssd_window(&tb, &mut client, xrgb(30, 140, 150), 2);
 
-    // The frame: (47, 19) to (249, 149). The title band spans y
-    // [19, 48) — rows [19, 24) sit over the desktop (the second
-    // window starts at y=24) and right of the first (which ends at
-    // x=150), so the band's word lands exactly (the near-opaque bar
-    // over the black desktop is its own premultiplied word). The
-    // borders and the button are fully opaque — their words are
-    // exact wherever they land.
+    // The frame: (48, 48) to (250, 178). The title band spans y
+    // [48, 77) — the rows sit over the second window's content for
+    // x < 224 and over the black desktop beyond it (the band's
+    // near-opaque bar over either underlay is its own premultiplied
+    // word; the black-underlay points are pinned here). The borders
+    // and the button are fully opaque — their words are exact
+    // wherever they land.
     let words = tb.scanout();
     let band = band_word();
     let ring = prem(RING_RGB, RING_ALPHA);
     let close = prem(CLOSE_RGB, CLOSE_ALPHA);
     let glyph = prem(GLYPH_RGB, GLYPH_ALPHA);
-    // The title band (over the black desktop, exact).
-    assert_eq!(word(&words, 150, 22), band, "the band over the desktop");
-    assert_eq!(word(&words, 200, 22), band, "the band's right reach");
+    // The title band (over the black desktop, exact — right of the
+    // second window, left of the ring).
+    assert_eq!(word(&words, 224, 51), band, "the band over the desktop");
+    assert_eq!(word(&words, 248, 51), band, "the band's right reach");
     // The border ring (opaque — exact over anything).
-    assert_eq!(word(&words, 47, 80), ring, "the left border");
-    assert_eq!(word(&words, 248, 80), ring, "the right border");
-    assert_eq!(word(&words, 150, 148), ring, "the bottom border");
+    assert_eq!(word(&words, 48, 80), ring, "the left border");
+    assert_eq!(word(&words, 249, 80), ring, "the right border");
+    assert_eq!(word(&words, 151, 177), ring, "the bottom border");
     // The close affordance: capsule and glyph (the capsule's point
     // sits off both diagonal strokes, inside the circle).
-    assert_eq!(word(&words, 230, 26), close, "the capsule's body");
-    assert_eq!(word(&words, 234, 34), glyph, "the × at the center");
+    assert_eq!(word(&words, 231, 55), close, "the capsule's body");
+    assert_eq!(word(&words, 235, 63), glyph, "the × at the center");
     // The content hole: the client's ink, untouched.
     assert_eq!(
-        word(&words, 100, 100),
+        word(&words, 101, 100),
         opaque(xrgb(30, 140, 150)),
         "the content"
     );
     assert_eq!(
-        word(&words, 200, 60),
+        word(&words, 201, 89),
         opaque(xrgb(30, 140, 150)),
         "the content's edge"
     );
-    // Beyond the frame: no chrome claim (the first window's own ink
-    // stands left of the frame, unclaimed).
+    // Beyond the frame: no chrome claim (the second window's own
+    // ink stands just left of the frame, unclaimed).
     assert_eq!(
-        word(&words, 46, 22),
-        opaque(xrgb(200, 40, 40)),
-        "left of the frame is the first window's ink"
+        word(&words, 47, 51),
+        opaque(xrgb(40, 80, 200)),
+        "left of the frame is the second window's ink"
     );
 
     // The claims ledger: minimize hides the chrome with the ink (the
@@ -722,17 +726,17 @@ fn the_chrome_ink_renders_around_the_content() {
     }
     let words = tb.scanout();
     assert_eq!(
-        word(&words, 150, 22),
+        word(&words, 224, 51),
         0xFF00_0000,
         "the hidden chrome left no ink"
     );
     assert_eq!(
-        word(&words, 47, 80),
+        word(&words, 48, 80),
         opaque(xrgb(40, 80, 200)),
         "the ring's rect reverted"
     );
     assert_eq!(
-        word(&words, 100, 100),
+        word(&words, 101, 100),
         opaque(xrgb(40, 80, 200)),
         "the content hid with it"
     );
@@ -747,10 +751,10 @@ fn the_chrome_ink_renders_around_the_content() {
         client.sync();
     }
     let words = tb.scanout();
-    assert_eq!(word(&words, 150, 22), band, "the band's bytes back");
-    assert_eq!(word(&words, 47, 80), ring, "the ring's bytes back");
-    assert_eq!(word(&words, 234, 34), glyph, "the affordance's bytes back");
-    assert_eq!(word(&words, 100, 100), opaque(xrgb(30, 140, 150)));
+    assert_eq!(word(&words, 224, 51), band, "the band's bytes back");
+    assert_eq!(word(&words, 48, 80), ring, "the ring's bytes back");
+    assert_eq!(word(&words, 235, 63), glyph, "the affordance's bytes back");
+    assert_eq!(word(&words, 101, 100), opaque(xrgb(30, 140, 150)));
     let _ = w3;
 }
 

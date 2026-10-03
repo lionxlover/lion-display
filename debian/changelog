@@ -1,3 +1,112 @@
+lion-display (0.25.0) unstable; urgency=medium
+
+  * Phase 57 — the chrome ghost: the drawn chrome's fifth follow-on.
+    A dying server-decorated window's band rides the close fade: the
+    ghost's capture freezes the chrome's shape truth (the frame, the
+    raster's shape key, the strip) and the render path reads the
+    same chrome cache the living desktop reads — same shape, same
+    bytes.
+  * The whole frame leaves as one: the grade walk pushes the band,
+    the strip, and the content at the ghost's z slot, every layer at
+    the one close-spring opacity; the dressing follows the live
+    band's rule (the chrome material at a Liquid tier — a fading
+    glass pane; Minimal fades the flat bar).
+  * The claims and the vacates grow the frame (a fading band moves
+    every pixel under it; the settle clears the band's region); the
+    Liquid tier's scanout reservation outlives the window. Plain,
+    client-decorated, and transitions-off destroys byte-exact with
+    the pre-Phase-57 doctrine.
+  * 7 chrome_ghost_session real-socket tests; 2,320 -> 2,327 total;
+    zero wire surface moved (the freeze gates untouched).
+
+ -- Z User <z@container>  Sat, 03 Oct 2026 10:00:00 +0000
+
+lion-display (0.24.0) unstable; urgency=medium
+
+  * Phase 56 — the chrome-aware placement: the drawn chrome's fourth
+    follow-on. The placement engine answers in frame space: the frame
+    (the content grown by the SSD insets — the band above, the border
+    ring around) takes the policy slot, the content rides inside.
+  * place_chrome (ldp-shell::layout, the pure policy's chrome-aware
+    form): the phone anchor parks the frame at the usable origin, the
+    cascade steps captions, the terminal corner stack anchors the
+    frame's corner — the band visible at every slot. Insets::ZERO
+    answers place() byte-identically for every policy (the identity
+    sweep is itself a test — the no-chrome path never moved).
+  * The pixel-true realization: the logical slot clamped by the
+    *physical* frame against the physical usable area with the
+    machine's own inset formula — a fractional factor's rounding
+    never shaves the band's top edge off the screen (the 1.25x
+    proof).
+  * The migration arm: replace_root takes the root's applied insets
+    (a fullscreen window's zero insets migrate as plain geometry) and
+    re-places the frame; None keeps the pre-Phase-56 doctrine
+    verbatim.
+  * The z-true chrome hit: the walk is topmost-first, stopping at the
+    first claim either way — a higher window's band claims above a
+    lower window's ink (the press follows the visible ink, never the
+    content hidden beneath it).
+  * Tests: 6 placement_session real-socket tests + 5 ldp-shell layout
+    unit tests + 5 shell unit tests; 2,305 -> 2,320; zero wire
+    surface moved (the freeze gates untouched, the fifth consecutive
+    release).
+
+ -- Z User <z@container>  Sat, 03 Oct 2026 08:00:00 +0000
+
+lion-display (0.23.0) unstable; urgency=medium
+
+  * Phase 55 — the Liquid band: the drawn chrome's third follow-on.
+  * The chrome material on the band: the layer wears Material::Chrome
+    (the dock's own, one truth for all system chrome) — the Sheet
+    frost pane beneath the ink (the band genuinely reads its
+    backdrop: blurred, desaturated, veiled), the chrome hairline on
+    the frame's top edge, the rounded corners, the shadow cleared.
+  * The veil: the dressed band's ink drops to a light veil (168) so
+    the frost reads through; the ring, the capsule, and the glyph
+    keep their opaque words; the cache keys the material variant.
+  * The pane's truths: the frost covers the whole frame (the content
+    rides above it); the underlay never direct-scanouts under a
+    serving band; an underlay's commit flows through the glass.
+  * The frost memo grown to the MaterialCache's budget doctrine
+    (word budget, LRU, entry cap, honest over-budget recompute) with
+    the frost_rebuilds thrash oracle.
+  * Minimal keeps the flat bar — every Phase 52-54 byte stands.
+  * Tests: 2,292 -> 2,305 (liquid_session + renderer memo suites +
+    the dressed-ink unit).
+
+ -- The Lion Display Team  Fri, 03 Oct 2026 00:00:00 +0000
+
+lion-display (0.22.0) unstable; urgency=medium
+
+  * Phase 54 — the title glyph: the drawn band carries its text.
+  * New zero-dependency crate ldp-font: Lion Sans (the compositor's
+    own typeface, 96 glyphs + notdef) and the analytic-coverage
+    rasterizer (exact per-pixel area integration, deterministic).
+  * The strip layer: the title's tinted coverage above the band,
+    below the content, cached by its stateless inputs; pixel-true
+    ellipsis truncation never reaching the close affordance.
+  * set_title on a serving window now dirties the scene (the
+    set_material doctrine — the repaint is the server's own claim).
+  * Tests: 2,263 -> 2,292 (title_session + ldp-font suites).
+  * Zero wire surface moved (the freeze gates hold).
+
+ -- LionOS Display Team <dev@lionos.example>  Sat, 03 Oct 2026 02:00:00 +0000
+
+lion-display (0.21.0) unstable; urgency=medium
+
+  * Phase release v0.21.0 -- the caption drag (Phase 53): the
+    drawn title bar becomes a move grip -- the server-side move
+    drag minted at the pointer's first motion through the same
+    machinery start_move owns (one machinery, two doors), the
+    move server truth at the pump's cadence with zero
+    configures, the click doctrine (a press without motion
+    never drags; the close affordance's own grip never
+    converts), and the maximized-window demotion over the
+    frame (the hand keeps its caption through the restore).
+    Zero wire movement, 2,263 tests.
+
+ -- LionOS Display Team <display@lionos.org>  Sat, 03 Oct 2026 20:00:00 +0800
+
 lion-display (0.20.0) unstable; urgency=medium
 
   * Phase release v0.20.0 -- the drawn chrome (Phase 52): the SSD

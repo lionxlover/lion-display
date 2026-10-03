@@ -1025,6 +1025,14 @@ impl CompositorDispatcher {
                         "the string argument exceeds the bounded-string budget",
                     )
                 })?;
+                // Phase 54 — the title glyph: a changed title is
+                // changed chrome (the strip's ink is the server's),
+                // so the repaint is the server's — the set_material
+                // doctrine, verbatim. The app_id stays metadata (no
+                // ink of its own yet).
+                if request.op.name == "set_title" {
+                    world.scene.dirty = true;
+                }
             }
             "set_min_size" | "set_max_size" => {
                 let (Value::Uint32(w), Value::Uint32(h)) = (&request.args[0], &request.args[1])
@@ -1382,136 +1390,19 @@ impl CompositorDispatcher {
                 "start_resize: the geometry states own the size — demote with start_move first",
             ));
         }
-        // The demotion: a geometry-stated window dragged by its title
-        // releases the states and restores its floating size.
-        let demotion = if !is_resize && (wanted.maximized() || wanted.fullscreen()) {
-            let pointer = world.input.pointer_position();
-            let rect = world
-                .scene
-                .tree
-                .get(surface)
-                .map_or(Rect::new(0, 0, 1, 1), Surface::last_bounds);
-            let policy = world.toplevel_policy(surface, None);
-            // The restore size: the floating size at the geometry
-            // engagement, the workspace's two-thirds as the
-            // never-floated fallback (the DWM default-size doctrine).
-            let (mut rw, mut rh) = world
-                .toplevels
-                .entry(client, object.as_u32())
-                .and_then(|e| e.restore_size)
-                .filter(|(w, h)| *w > 0 && *h > 0)
-                .unwrap_or((
-                    policy.workspace_area.w / 3 * 2,
-                    policy.workspace_area.h / 3 * 2,
-                ));
-            // clamp against the hints (logical)
-            let entry = world.toplevels.entry_mut(client, object.as_u32());
-            if let Some(e) = entry {
-                let clamped = e.machine.clamp_size(rw, rh);
-                if clamped.0 > 0 && clamped.1 > 0 {
-                    (rw, rh) = clamped;
-                }
-            }
-            let phys_w = crate::shell::scale_axis(rw as i32, policy.scale);
-            let phys_h = crate::shell::scale_axis(rh as i32, policy.scale);
-            // The anchored start: the pointer's proportional grip on
-            // the geometry-stated window maps onto the restore size
-            // (the window pops under the hand; the size realizes at
-            // the client's cadence — never tearing).
-            let (rw_f, rh_f) = (rect.w as f32, rect.h as f32);
-            let ratio_x = if rw_f > 0.0 {
-                ((pointer.0 - rect.x as f32) / rw_f).clamp(0.0, 1.0)
-            } else {
-                0.5
-            };
-            let ratio_y = if rh_f > 0.0 {
-                ((pointer.1 - rect.y as f32) / rh_f).clamp(0.0, 1.0)
-            } else {
-                0.5
-            };
-            let anchor_x = (pointer.0 - ratio_x * phys_w as f32).round() as i32;
-            let anchor_y = (pointer.1 - ratio_y * phys_h as f32).round() as i32;
-            // The machine releases the states; the restore point and
-            // its size consumed (a fresh engagement re-captures).
-            if let Some(e) = world.toplevels.entry_mut(client, object.as_u32()) {
-                e.machine.unmaximize();
-                e.machine.unfullscreen();
-                e.machine.set_resizing(false);
-                e.restore = None;
-                e.restore_size = None;
-                e.drag_pos = None;
-            }
-            // The detach: the window jumps to the anchored position
-            // *now* (server truth — the geometry-stated fill leaves
-            // with it).
-            world
-                .scene
-                .tree
-                .set_position_now(surface, anchor_x, anchor_y)
-                .ok();
-            world.scene.dirty = true;
-            world.sync_states_visibility(surface);
-            Some((anchor_x, anchor_y, phys_w as u32, phys_h as u32, (rw, rh)))
-        } else {
-            None
-        };
-        // The grip itself: the geometry truths the pump derives from.
-        let pointer = world.input.pointer_position();
-        let (window_start, last_size) = if let Some((ax, ay, pw, ph, (rw, rh))) = demotion {
-            // The demoted drag anchors on the restore size's rect (the
-            // buffer is still the old, big one — the client commits
-            // the restore size at its cadence; the position follows
-            // the anchor either way).
-            (Rect::new(ax, ay, pw, ph), (rw, rh))
-        } else {
-            let rect = world
-                .scene
-                .tree
-                .get(surface)
-                .map_or(Rect::new(0, 0, 1, 1), Surface::last_bounds);
-            let policy = world.toplevel_policy(surface, None);
-            let lw = crate::shell::unscale_axis(rect.w as i32, policy.scale).max(1);
-            let lh = crate::shell::unscale_axis(rect.h as i32, policy.scale).max(1);
-            (
-                rect,
-                (
-                    u32::try_from(lw).unwrap_or(1),
-                    u32::try_from(lh).unwrap_or(1),
-                ),
-            )
-        };
+        // The grip itself — the one machinery the pump's caption
+        // conversion shares (Phase 53): the demotion a geometry-stated
+        // window dragged by its title serves (the proportional anchor
+        // over the pressed rect, the restore size, the detach) and the
+        // `LiveDrag` minted and begun, all inside
+        // `world.mint_pointer_drag`. The demotion's proposal rides the
+        // request's own wake.
         let mode = if is_resize {
             crate::shell::DragMode::Resize(edges.expect("the resize arm decoded it"))
         } else {
             crate::shell::DragMode::Move
         };
-        if is_resize {
-            if let Some(e) = world.toplevels.entry_mut(client, object.as_u32()) {
-                e.machine.set_resizing(true);
-            }
-        }
-        let drag = crate::shell::LiveDrag {
-            client,
-            object: object.as_u32(),
-            surface,
-            mode,
-            pointer_start: pointer,
-            window_start,
-            last_size,
-            proposed: false,
-        };
-        world.begin_drag(drag);
-        // The demotion's proposal: the floating size the verbs
-        // displaced, offered through the same two-phase commit (the
-        // client acks, its commit realizes the size — the drag moves
-        // the position meanwhile, the anchor holds).
-        let demotion_proposal = demotion.and_then(|(_, _, _, _, (rw, rh))| {
-            let policy = world.toplevel_policy(surface, None);
-            world
-                .toplevels
-                .entry_mut(client, object.as_u32())
-                .map(|e| e.machine.propose_sized(&policy, (rw, rh)))
-        });
+        let demotion_proposal = world.mint_pointer_drag(client, object.as_u32(), surface, mode);
         drop(world);
         if let Some(proposal) = demotion_proposal {
             ctx.emit(
@@ -2106,13 +1997,23 @@ impl CompositorDispatcher {
                 // keeps creation positions — the byte-exact doctrine.
                 // Subsurfaces keep their parent-relative positions; a
                 // re-attach of an already placed root does not re-place.
+                // Phase 56: a server-decorated toplevel's placement
+                // answers in frame space — the toplevel host holds the
+                // decoration truth, and the window the machine will
+                // dress gets its band placed on-screen from the very
+                // first frame (the insets are the machine's own
+                // deterministic formula; no ack is awaited).
                 let is_unplaced_root = world
                     .scene
                     .routes
                     .get(&surface)
                     .is_some_and(|r| r.role_obj.is_none() && !r.placed);
                 if world.shell.is_active() && is_unplaced_root {
-                    let (x, y) = world.shell.place_root(size);
+                    let server_chrome = world
+                        .toplevels
+                        .by_surface(surface)
+                        .is_some_and(|t| t.decoration == ldp_shell::ssd::DecorationMode::Server);
+                    let (x, y) = world.shell.place_root(size, server_chrome);
                     world.scene.tree.set_position(surface, x, y).ok();
                     if let Some(route) = world.scene.routes.get_mut(&surface) {
                         route.placed = true;

@@ -1244,11 +1244,36 @@ fn words_to_texture_bytes(words: &[u32]) -> Vec<u8> {
 ///
 /// The comparison is a full word equality (deterministic by
 /// construction — no hashing, no clocks); a changed backdrop recomputes
-/// into the same retained entry. Two entries cover the real phone
-/// scene (the dock plus one frosted panel).
+/// into the same retained entry.
+///
+/// Phase 55 grew the memo from its Phase 29 two-entry phone scene (the
+/// dock plus one frosted panel) to the [`MaterialCache`]'s own doctrine
+/// — a bounded word budget with LRU eviction and honest behavior past
+/// the cap — because the Liquid chrome dresses *every* server-drawn
+/// band in the frost: a desktop of SSD windows is a desktop of frost
+/// panes, and a fixed two-entry memo would thrash (each band
+/// recomputing every frame — the exact regression the shadow memo's
+/// Phase 30 output-scaled budget closed for the same reason).
 #[derive(Debug, Default)]
 pub struct FrostMemo {
+    /// The retained panes, most-recent first (the LRU lives at the
+    /// back).
     entries: Vec<FrostEntry>,
+    /// The live word budget's raise (0 = the floor; see
+    /// [`FROST_MEMO_BUDGET_WORDS`]). Only *larger* budgets ever
+    /// change (the shadow memo's own doctrine).
+    budget_words: usize,
+    /// How many materials were *built* (misses, backdrop changes, and
+    /// over-budget recomputes) — the thrash oracle: rendering the same
+    /// scene twice must not grow it.
+    rebuilds: u64,
+    /// The over-budget path's retained material (built per call, never
+    /// cached — the honest fallback).
+    oversized: Vec<u32>,
+    /// The over-budget path's blur scratch (the pair
+    /// [`frost_material_into`] ping-pongs through).
+    oversized_a: Vec<u32>,
+    oversized_b: Vec<u32>,
 }
 
 #[derive(Debug)]
@@ -1261,53 +1286,89 @@ struct FrostEntry {
     blur_b: Vec<u32>,
 }
 
-/// How many distinct frosted surfaces the memo tracks (the dock plus a
-/// panel; more frosted layers than this thrash — each recomputes, which
-/// is exactly what Phase 28 did for every one of them).
-pub const FROST_MEMO_ENTRIES: usize = 2;
+/// The frost memo's entry cap: distinct `(dest, params)` panes
+/// tracked before the least-recently-used falls out. The Phase 29
+/// phone scene needed two (the dock plus a panel); the Phase 55 scene
+/// — the dock, the menus, and a desktop of Liquid bands — fits in
+/// dozens with words to spare (the budget below is the binding limit;
+/// the cap bounds the linear scan).
+pub const FROST_MEMO_ENTRIES: usize = 64;
+
+/// The frost memo's live word budget floor (16 MiB): one entry
+/// retains four buffers over its pane (the saved backdrop, the
+/// material, and the blur ping-pong pair), so the floor is "one
+/// large pane plus the small glass, fully resident." Past the live
+/// budget (this floor, or the output-scaled budget a large output
+/// sets), the whole budget takes the honest recompute path — exactly
+/// the MaterialCache's own degradation, never a wrong pixel.
+pub const FROST_MEMO_BUDGET_WORDS: usize = 4 * 1024 * 1024;
 
 impl FrostMemo {
     /// The memoized `frost_material(saved, dest.w, dest.h, params)` —
     /// recomputing when the backdrop changed, serving when it did not.
     pub fn get_or_build(&mut self, dest: Rect, params: &BackdropParams, saved: &[u32]) -> &[u32] {
-        let pos = self
+        if let Some(pos) = self
             .entries
             .iter()
-            .position(|e| e.dest == dest && e.params == *params);
-        let pos = if let Some(p) = pos {
-            p
-        } else {
-            while self.entries.len() >= FROST_MEMO_ENTRIES {
-                self.entries.pop();
+            .position(|e| e.dest == dest && e.params == *params)
+        {
+            let stale = self.entries[pos].saved != saved || self.entries[pos].material.is_empty();
+            if stale {
+                let entry = &mut self.entries[pos];
+                frost_material_into(
+                    saved,
+                    dest.w,
+                    dest.h,
+                    params,
+                    &mut entry.blur_a,
+                    &mut entry.blur_b,
+                    &mut entry.material,
+                );
+                self.rebuilds += 1;
+                entry.saved.clear();
+                entry.saved.extend_from_slice(saved);
             }
-            self.entries.insert(
-                0,
-                FrostEntry {
-                    dest,
-                    params: *params,
-                    saved: Vec::new(),
-                    material: Vec::new(),
-                    blur_a: Vec::new(),
-                    blur_b: Vec::new(),
-                },
-            );
-            0
-        };
-        let entry = &mut self.entries[pos];
-        if entry.saved != saved || entry.material.is_empty() {
-            frost_material_into(
-                saved,
-                dest.w,
-                dest.h,
-                params,
-                &mut entry.blur_a,
-                &mut entry.blur_b,
-                &mut entry.material,
-            );
-            entry.saved.clear();
-            entry.saved.extend_from_slice(saved);
+            let entry = self.entries.remove(pos);
+            self.entries.insert(0, entry);
+            let entry = &self.entries[0];
+            return &entry.material;
         }
-        let entry = &self.entries[pos];
+        // The miss: build once, then either retain or take the honest
+        // over-budget path.
+        let mut material = Vec::new();
+        let mut blur_a = Vec::new();
+        let mut blur_b = Vec::new();
+        frost_material_into(
+            saved,
+            dest.w,
+            dest.h,
+            params,
+            &mut blur_a,
+            &mut blur_b,
+            &mut material,
+        );
+        self.rebuilds += 1;
+        let footprint = material.len() + blur_a.len() + blur_b.len() + saved.len();
+        if footprint > self.budget_words() {
+            // The honest path: retained scratch, never cached.
+            self.oversized = material;
+            self.oversized_a = blur_a;
+            self.oversized_b = blur_b;
+            return &self.oversized;
+        }
+        self.evict_for(footprint);
+        self.entries.insert(
+            0,
+            FrostEntry {
+                dest,
+                params: *params,
+                saved: saved.to_vec(),
+                material,
+                blur_a,
+                blur_b,
+            },
+        );
+        let entry = &self.entries[0];
         &entry.material
     }
 
@@ -1321,6 +1382,49 @@ impl FrostMemo {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    /// How many frost materials were built since construction (the
+    /// thrash oracle, the shadow memo's own: a steady re-render must
+    /// not grow it).
+    #[must_use]
+    pub const fn rebuilds(&self) -> u64 {
+        self.rebuilds
+    }
+
+    /// The live word budget (the floor when never scaled).
+    #[must_use]
+    pub fn budget_words(&self) -> usize {
+        if self.budget_words == 0 {
+            FROST_MEMO_BUDGET_WORDS
+        } else {
+            self.budget_words
+        }
+    }
+
+    /// Raise the budget for a large output — never lower it below the
+    /// floor (the shadow memo's doctrine; only *larger* budgets ever
+    /// change).
+    pub fn set_budget_words(&mut self, words: usize) {
+        self.budget_words = self.budget_words().max(words);
+    }
+
+    /// One retained pane's true footprint: every buffer the entry
+    /// holds (the saved backdrop, the material, the blur scratch
+    /// pair).
+    fn entry_footprint(e: &FrostEntry) -> usize {
+        e.saved.len() + e.material.len() + e.blur_a.len() + e.blur_b.len()
+    }
+
+    /// Evict until the budget and entry cap admit `extra` words.
+    fn evict_for(&mut self, extra: usize) {
+        let mut total: usize = self.entries.iter().map(Self::entry_footprint).sum();
+        while total + extra > self.budget_words() || self.entries.len() >= FROST_MEMO_ENTRIES {
+            let Some(evicted) = self.entries.pop() else {
+                break;
+            };
+            total -= Self::entry_footprint(&evicted);
+        }
     }
 }
 
@@ -2277,6 +2381,120 @@ mod tests {
         let saved2 = vec![pack_canonical(9, 9, 9, 255); 64];
         let _ = memo.get_or_build(dest2, &params, &saved2);
         assert_eq!(memo.len(), 2);
+    }
+
+    // ---- Phase 55: the frost memo's budget doctrine -------------------
+
+    /// A desktop of Liquid bands is a desktop of frost panes: the
+    /// budget holds them *all* resident, and the steady state serves
+    /// without rebuilding (the shadow memo's Phase 30 story, the
+    /// frost's own — the Phase 29 two-entry memo would have thrashed
+    /// here exactly the way the fixed shadow cap once did).
+    #[test]
+    fn frost_memo_budget_holds_a_desktop_of_panes() {
+        let params = BackdropParams::frosted_light();
+        // Eight window-sized panes (256x160 = 41k words each, ~164k
+        // words of footprint apiece) — 1.3 Mi words together, well
+        // under the 4 Mi-word floor.
+        let saved = vec![pack_canonical(40, 60, 90, 255); 256 * 160];
+        let panes: Vec<Rect> = (0..8).map(|i| Rect::new(i * 4, 0, 256, 160)).collect();
+        let mut memo = FrostMemo::default();
+        for dest in &panes {
+            let _ = memo.get_or_build(*dest, &params, &saved);
+        }
+        assert_eq!(memo.len(), 8, "the floor holds a desktop of panes");
+        let stable = memo.rebuilds();
+        for dest in &panes {
+            let _ = memo.get_or_build(*dest, &params, &saved);
+        }
+        assert_eq!(memo.rebuilds(), stable, "no rebuild in the steady state");
+    }
+
+    /// The budget's honest edges: past the floor the LRU falls out
+    /// (the next ask rebuilds — the thrash, honest, never wrong), and
+    /// a single pane over the *whole* budget takes the honest
+    /// recompute path — correct bytes, never retained.
+    #[test]
+    fn frost_memo_evicts_lru_and_takes_the_honest_over_budget_path() {
+        // A blur-less material (the veil alone): fast to build, and
+        // still a true footprint (saved + material + blur_a = 3x the
+        // pane's words).
+        let params = BackdropParams {
+            blur: 0,
+            passes: 0,
+            saturation: 128,
+            tint: [0xEE, 0xEE, 0xF2],
+            tint_alpha: 140,
+        };
+        // Floor-scale panes: 1024x1024 words (1.05 Mi) each — a
+        // 3.15 Mi-word footprint fits the 4 Mi-word floor alone, but
+        // two together overflow it (the budget's LRU edge, exactly
+        // the shadow memo's two-2048s-shadows shape).
+        let pane = 1024 * 1024;
+        let saved = vec![pack_canonical(7, 7, 7, 255); pane];
+        let dest_a = Rect::new(0, 0, 1024, 1024);
+        let dest_b = Rect::new(4, 4, 1024, 1024);
+        let dest_c = Rect::new(8, 0, 1024, 1024);
+        let mut memo = FrostMemo::default();
+        let _ = memo.get_or_build(dest_a, &params, &saved);
+        assert_eq!(memo.len(), 1, "the first pane fits the floor");
+        let _ = memo.get_or_build(dest_b, &params, &saved);
+        assert_eq!(memo.len(), 1, "the second pane evicted the first (the LRU)");
+        let before = memo.rebuilds();
+        let _ = memo.get_or_build(dest_c, &params, &saved);
+        assert_eq!(memo.len(), 1);
+        assert_eq!(memo.rebuilds(), before + 1);
+        // The evicted pane rebuilds on its next ask (the thrash —
+        // honest, never wrong bytes).
+        let before = memo.rebuilds();
+        let rebuilt = memo.get_or_build(dest_a, &params, &saved).to_vec();
+        assert_eq!(memo.rebuilds(), before + 1, "the thrash rebuilds, honestly");
+        assert_eq!(
+            rebuilt,
+            frost_material(&saved, dest_a.w, dest_a.h, &params),
+            "the rebuilt pane is byte-correct"
+        );
+        // A single pane over the *whole* floor (a 2048x2048 glass
+        // sheet): the honest recompute — the exact material bytes,
+        // never admitted to the cache.
+        let big = Rect::new(0, 0, 2048, 2048);
+        let big_saved = vec![pack_canonical(11, 22, 33, 255); 2048 * 2048];
+        let mut tight = FrostMemo::default();
+        let built = tight.get_or_build(big, &params, &big_saved).to_vec();
+        assert_eq!(
+            built,
+            frost_material(&big_saved, big.w, big.h, &params),
+            "the over-budget path is byte-correct"
+        );
+        assert_eq!(tight.len(), 0, "the over-budget pane is never cached");
+        let first = tight.rebuilds();
+        let again = tight.get_or_build(big, &params, &big_saved).to_vec();
+        assert_eq!(again, built);
+        assert!(
+            tight.rebuilds() > first,
+            "the over-budget path rebuilds per call"
+        );
+    }
+
+    /// The entry cap bounds the linear scan: more distinct panes than
+    /// [`FROST_MEMO_ENTRIES`] and the oldest fall out regardless of
+    /// the word budget.
+    #[test]
+    fn frost_memo_caps_its_entry_count() {
+        let params = BackdropParams {
+            blur: 0,
+            passes: 0,
+            saturation: 128,
+            tint: [0xEE, 0xEE, 0xF2],
+            tint_alpha: 140,
+        };
+        let saved = vec![pack_canonical(1, 2, 3, 255); 12];
+        let mut memo = FrostMemo::default();
+        for i in 0..(FROST_MEMO_ENTRIES + 4) {
+            let dest = Rect::new(i as i32, 0, 4, 3);
+            let _ = memo.get_or_build(dest, &params, &saved);
+        }
+        assert_eq!(memo.len(), FROST_MEMO_ENTRIES, "the cap bounds the scan");
     }
 
     // ---- Phase 40: the edge light and the vibrant domain -------------

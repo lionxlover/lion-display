@@ -1,0 +1,28 @@
+[package]
+name = "ldp-font"
+description = "LDP font layer: the compositor's own typeface (Lion Sans) and its analytic coverage rasterizer — glyph outlines, run layout with pixel-true truncation, deterministic alpha bitmaps"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Runtime dependency policy (CONTRIBUTING.md rule 5): the font layer is
+# a pure foundation primitive — a typeface and a rasterizer. It reads no
+# clock, opens no devices, performs no I/O, and depends on nothing at
+# all: the outline table and the coverage math are self-contained, the
+# same purity ldp-core's geometry carries. The compositor binary tints
+# the coverage into ink (the palette stays the painter's).
+#
+# Zero dependencies is the doctrine: a display server that carries its
+# own face never rides a system font lottery (fontconfig discovery,
+# fallback waterfalls, per-user fonts breaking the title bar). The
+# glyphs it cannot draw it draws honestly — the notdef box — never a
+# crash, never silent garbage.
+
+[lints]
+workspace = true

@@ -29,13 +29,6 @@ and the visibility verbs with App-Nap frame parking (the minimize
 DWM hides by clipping the window from the composition; LDP parks
 the frame economy too — the occlusion line's own machinery, reused).
 Phase 50 (v0.18.0) closed the operator's-hand line — the
-Phase 52 (v0.20.0) closed the drawn-chrome line — the SSD
-pass (the title bar, the border ring, and the close affordance as
-compositor-owned CPU ink, the claims ledger, the chrome-aware
-maximize) and the server-initiated `close` event the frozen spec
-awaited (the drawn button's press arms, its release fires, a drag
-away cancels — DWM's caption close and WindowServer's title-bar
-close answered with drawn chrome of our own).
 interactive move/resize vocabulary the spec never grew: the
 title-bar drag and the eight-edge grip, where DWM's
 `WM_SYSCOMMAND`/`SC_MOVE` and WindowServer's title-bar drags are
@@ -47,6 +40,101 @@ grace window keeping pointer-paced supersession from punishing a
 frame-cadence client), and dragging a maximized window demotes it
 under the pointer's proportional grip exactly as the giants' title
 drags do.
+Phase 52 (v0.20.0) closed the drawn-chrome line — the SSD
+pass (the title bar, the border ring, and the close affordance as
+compositor-owned CPU ink, the claims ledger, the chrome-aware
+maximize) and the server-initiated `close` event the frozen spec
+awaited (the drawn button's press arms, its release fires, a drag
+away cancels — DWM's caption close and WindowServer's title-bar
+close answered with drawn chrome of our own).
+Phase 54 (v0.22.0) closed the title-glyph line — the drawn band
+finally carries its text: Lion Sans, the compositor's *own*
+typeface (96 glyphs + the notdef box, authored in em units, zero
+dependencies — no fontconfig discovery, no fallback waterfall, no
+user font breaking the title bar), an analytic-coverage rasterizer
+(exact per-pixel area integration, deterministic byte-for-byte),
+and the strip as its own layer over the band with pixel-true
+ellipsis truncation and the server-owned title-change repaint —
+DWM's ClearType caption text and WindowServer's CoreText title
+answered with a face the binary carries (the honest trade named:
+their font stacks render any installed face at any hinting; ours
+renders one face perfectly and draws the notdef box for the rest
+— the coverage is data, the rasterizer never changes).
+
+Phase 56 (v0.24.0) closed the chrome-aware-placement line — the
+placement engine answers in **frame space**: every arm that places
+a server-decorated window (the first-attach policy, the migration
+re-placement) parks the *frame* — the band and the border ring
+included — at the policy slot, the content riding inside, so a
+parked window's caption renders from row 0 of the display (the
+title readable, the close button reachable, the drag grip live)
+and the cascade steps *captions* the way DWM's and WindowServer's
+cascades do. The pixel-true realization clamps the physical frame
+against the physical usable area with the machine's own inset
+formula (a fractional factor's rounding can never shave the
+band's top edge), the migration re-places the applied-inset frame
+(a fullscreen window migrates as plain geometry), and the chrome
+hit test went z-true with it — the walk topmost-first, a higher
+window's band claiming above a lower window's ink (the press
+follows the visible ink, never the content hidden beneath it:
+DWM's window-rect hit test, answered). Plain and client-decorated
+windows keep the exact pre-Phase-56 answers — the identity sweep
+proves the no-chrome path never moved — zero wire surface moved:
+the placement is the server's own geometry.
+
+Phase 57 (v0.25.0) closed the chrome-ghost line — the close fade
+takes the **whole window**. The dying window's ghost (the owned
+snapshot Phase 48 faded for content alone) now carries its chrome:
+the capture freezes the band's shape truth (the frame, the raster
+cache's shape key, the strip) at death, and the ghost's render
+pushes the band, the strip, and the content as one family at the
+one close-spring opacity, at the window's own z slot — a fading
+band never draws above the windows that were above it, and a
+Liquid tier's frost keeps sampling the composed canvas until the
+settle (a fading glass pane). The band's ink is stateless — the
+shape is the raster's whole truth — so the ghost borrows the
+desktop's own chrome cache rather than owning a copy: same shape,
+same bytes, the memory bill a cache hit. DWM's genie animation
+and WindowServer's window zoom carry the title bar with the
+content on their own close routes; ours now does too, with the
+A/B oracle's honesty the giants' closed stacks cannot offer: the
+settled fade equals the never-animated destroy, byte for byte.
+Plain and client-decorated windows keep the content-only ghost,
+and with transitions off the band leaves with the route as it
+always has — zero wire surface moved: the choreography is the
+server's own.
+
+Phase 55 (v0.23.0) closed the Liquid-dressing line — the drawn
+band wears the **chrome material**, the dock's own glass: the
+frost pane beneath the band's veil genuinely reads the backdrop
+(blurred, desaturated, veiled — a red window beneath warms the
+title bar, a blue one cools it, an underlay's commit flows
+through the glass in the same frame), the chrome hairline traces
+the frame's top edge, the corners round like every glass pane,
+and the band's own veil anchors the lightness over any backdrop
+(the readability floor the giants' title text owes its contrast)
+— DWM's acrylic/Mica caption and WindowServer's vibrant title
+bar answered with the system's own material, one truth for all
+chrome (the dock and the band speak the same glass), `Minimal`
+keeping the flat bar (the quality budget's honest degradation,
+never a lie), and the frost memo grown to the MaterialCache's
+budget doctrine so a desktop of glass bands serves from memory
+(the `frost_rebuilds` thrash oracle proving the steady state
+flat) — zero wire surface moved: the Material family has been
+frozen protocol since Phase 45, and this is the server's own
+chrome finally wearing one.
+
+Phase 53 (v0.21.0) closed the caption-drag line — the drawn
+title bar became a *move grip*: the server mints the move drag
+itself at the pointer's first motion (one machinery with the
+client's `start_move`, two doors), the geometry server truth at
+the input pump's cadence with zero configures, the close
+button's own grip never converting, and the maximized-window
+demotion measured over the drawn *frame* so the hand keeps its
+caption through the restore — DWM's caption-initiated
+`SC_MOVE` and WindowServer's title-bar drag, answered
+server-side with the cadence doctrines *on the record* (zero
+wire movement).
 The matrix in
 [`comparison.md`](comparison.md) scores the three systems field by
 field — outcomes, medians, reasoned numbers.

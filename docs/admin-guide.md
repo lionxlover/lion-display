@@ -551,6 +551,135 @@ and a maximized SSD window fills the screen with its *frame*
 close that drags away cancels (the caption doctrine); the grip
 dies with the window, the object, or the session.
 
+### The Liquid band: the title bar's glass (v0.23.0)
+
+Server-decorated windows' bands wear the system's own glass at any
+effects tier above `minimal`: the chrome material — the same frost
+the dock serves — beneath the band's veil, the chrome hairline on
+the frame's top edge, the corners rounded. The operator's honest
+expectations:
+
+* The band is *backdrop-dependent* by design: what renders beneath
+  a window shows through its title bar (reddened, cooled, blurred
+  — the glass read). An underlay's commit repaints the band in the
+  same frame; nothing is cached against a moved window.
+* The **readability floor** holds over any backdrop: the band's
+  veil anchors the lightness, the dark title ink keeps its
+  contrast — no operator tuning exists because none is needed.
+* The window's *content* rides above the pane untouched: opaque
+  client pixels are byte-identical to the undressed render; the
+  ring, the close capsule, and the glyph keep their crisp opaque
+  words.
+* A `minimal`-tier machine (the headless default, `--effects
+  minimal`) keeps the flat bar — every Phase 52-54 pixel pinned,
+  the honest degradation, never a lie.
+* The underlay economy: a client layer beneath a dressed band never
+  direct-scanouts (its pixels must compose into the canvas the
+  frost samples — the dock's own reservation, the solver's split).
+  On plane-rich hardware a Liquid band therefore pins the frames
+  it overlaps to the composite arm; the frame-economy counters
+  (`--report`) name it honestly.
+
+### The chrome-aware placement: the caption is always on-screen (v0.24.0)
+
+The placement engine answers in frame space: every arm that places
+a server-decorated window (the first-attach policy, the migration
+re-placement) parks the *frame* — the band and the border ring
+included — at the policy slot, the content riding inside. The
+operator's honest expectations:
+
+* A parked window's caption renders from row 0 of the display —
+  the title readable, the close button reachable, the drag grip
+  live; the pre-v0.24.0 look (a window at the origin with its band
+  above the visible area) is gone at every tier.
+* The cascade steps *title bars*: the stack reads like DWM's and
+  WindowServer's. Plain surfaces and client-decorated windows keep
+  the exact pre-v0.24.0 answers (proven by the layout's identity
+  sweep — the no-chrome path never moved).
+* Fractional scale factors are pixel-true: the physical frame
+  clamps against the physical usable area with the machine's own
+  inset formula, so a 1.25x panel never shaves the band's top edge
+  by a rounding step (the physical clamp is the last word).
+* Display hotplugs re-place the stack with the frames inside the
+  new usable area; a fullscreen window (zero applied insets)
+  migrates as plain geometry. A *fresh* canvas after a
+  primary-swap migration paints what the claims ledger repaints —
+  the full-scene re-render rides the render-thread line (the
+  honest remainder); the chrome returns with its own claims
+  (minimize/unminimize restores the exact bytes).
+* Presses follow the visible ink: a band over another window's
+  content claims the press for its own window — the z-true walk,
+  DWM's own answer.
+
+### The title glyph: the drawn text's expectations (v0.22.0)
+
+Server-decorated windows' bands now carry their titles as drawn
+text — Lion Sans, the compositor's own typeface (no system font
+discovery, no fallback waterfall, no user font can break the title
+bar; the face ships in the binary). The operator's honest
+expectations:
+
+* The title is bounded at 4096 bytes as ever (the frozen
+  `set_title` contract); longer or NUL-bearing strings are
+  rejected with the protocol's own codes, exactly as before.
+* A title wider than the band ends in an ellipsis — the ink never
+  reaches the close affordance, at any window size.
+* Codepoints beyond the face's coverage (the Latin accents and
+  beyond are named follow-ons) draw the notdef box — a visible
+  hollow rectangle, truthful by design; the rasterizer itself
+  never changes, only the glyph table grows.
+* A changed title repaints on the next frame with no client
+  round-trip — the claim is the server's own (a band standing
+  still still repaints its changed text).
+
+### The caption drag: title-bar move expectations (v0.21.0)
+
+Since v0.21.0 the drawn title bar is a *move grip*: a press on
+the band that moves drags the window (the server mints the move
+drag itself — no client request involved, the geometry applying
+at the input pump's cadence). Two operator-visible doctrines
+follow. First, the **drag is server truth**: a title-bar drag
+never sends the app a configure — the window tracks the hand
+while an app that never acks anything still moves (the one
+exception: dragging a *maximized* window out by its caption
+demotes it — the floating-size restore the app acks and commits
+at its own cadence, the hand keeping its proportional grip on
+the caption it actually holds, so the restored window stays
+under the fingers, never tearing). Second, the **click and the
+drag stay distinct**: a press without motion is the v0.20.0 band
+click (focus only), the close button's own grip never becomes a
+move (press-drag-release is its cancel), and one hand rules — a
+window already being dragged (by caption or by request) is
+never double-dragged. A client-decorated app's title bar is its
+own buffer: its presses route to the app, and its moves ride
+`start_move` as before. The grip dies with the window, the
+object, or the session — a late motion after the window's death
+moves nothing.
+
+### The chrome ghost: death-route expectations (v0.25.0)
+
+Since v0.25.0 the close fade takes the *whole window*: under
+`--transitions`, a server-decorated window leaving the desktop
+(destroyed by its client, or hidden by a detach commit) fades its
+band, its title strip, and its content together — one frame, one
+opacity, one spring. The operator-visible expectations: the fading
+band keeps its z slot (a window destroyed under a survivor never
+draws above it — the survivor's content stays byte-exact through
+the whole fade), a Liquid tier's glass keeps reading the desktop
+behind it until the settle (a window leaving in glass, not in
+pieces), and the settled desktop equals the same destroy with
+transitions off, byte for byte (the fade is pure choreography —
+the A/B oracle). The frame economy: a fading band claims its
+whole frame every frame (the ink moves — that is the fade), and
+the settle's vacate clears the band's region itself; a ghost is
+nobody's surface, so no client frame economy re-renders it. The
+eligibility rides Phase 48's doctrine verbatim: popups and
+ephemeral roles dismiss instantly, a hidden window leaves no
+ghost at all, and the library default (transitions off) keeps the
+band leaving with the route — the destroy is plain, exactly as
+before. Client-decorated windows are untouched: their close fade
+is the content ghost alone.
+
 ## 5. Troubleshooting
 
 * **Service starts then exits 0 immediately** — `--mode auto` found a

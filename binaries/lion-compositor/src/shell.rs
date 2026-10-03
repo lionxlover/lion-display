@@ -43,7 +43,7 @@ use ldp_core::geometry::{Rect, Region, Transform};
 use ldp_renderer::{BufferView, LayerStyle, SurfaceLayer};
 use ldp_shell::layout::{self, DockConfig, Layout, PlacementPolicy};
 use ldp_shell::popup::{Placement, Popup, PopupConstraints, PopupGeometry};
-use ldp_shell::{clamp_into, place};
+use ldp_shell::{clamp_chrome, clamp_into, place, place_chrome};
 
 /// The dock's choice (CLI `--dock`): on (the operator default) or
 /// off (the library default — byte-exact legacy pixels).
@@ -202,28 +202,90 @@ impl Shell {
 
     /// Place a newly-attaching root of `size` under the class's
     /// default policy; increments the placement counter.
+    ///
+    /// `server_chrome` (Phase 56): the root is a server-decorated
+    /// toplevel — the window *will* wear the drawn band and border
+    /// ring, so the placement answers in **frame space**: the frame
+    /// (the content grown by the SSD insets) takes the policy slot,
+    /// the content rides inside, and the band never parks above the
+    /// visible area. The no-chrome answer is byte-identical to the
+    /// pre-Phase-56 doctrine (plain surfaces and client-decorated
+    /// windows never moved).
     #[must_use]
-    pub fn place_root(&mut self, size: (u32, u32)) -> (i32, i32) {
+    pub fn place_root(&mut self, size: (u32, u32), server_chrome: bool) -> (i32, i32) {
         let nth = self.placed;
         self.placed = self.placed.saturating_add(1);
+        let policy = self.layout.class.default_policy();
         // The buffer's size is physical (the tree's space); the
-        // cascade resolves logically; the placement lands physically.
+        // policy resolves logically; the placement lands physically.
         let logical = (self.scale.unscale_px(size.0), self.scale.unscale_px(size.1));
-        let (x, y) = place(
-            self.layout.class.default_policy(),
-            self.layout.usable,
-            logical,
-            nth,
+        if !server_chrome {
+            let (x, y) = place(policy, self.layout.usable, logical, nth);
+            return (scale_axis(x, self.scale), scale_axis(y, self.scale));
+        }
+        // The chrome arm: the logical doctrine picks the frame's slot
+        // (the insets authored logical — the band is 29 logical px at
+        // every DPI); the *physical* realization then clamps the
+        // frame pixel-true against the physical usable area, using
+        // the machine's own inset formula (`scale_px_up`) so a
+        // fractional factor's logical rounding can never shave the
+        // band's top edge off the screen — the physical clamp is the
+        // last word, and it never disagrees by more than a rounding
+        // step.
+        let logical_insets = ldp_shell::ssd::SsdMetrics::LION.insets(
+            ldp_shell::ssd::DecorationMode::Server,
+            ldp_core::scale::ScaleFactor::IDENTITY,
         );
-        (scale_axis(x, self.scale), scale_axis(y, self.scale))
+        let (x, y) = place_chrome(policy, self.layout.usable, logical, logical_insets, nth);
+        let insets = ldp_shell::ssd::SsdMetrics::LION
+            .insets(ldp_shell::ssd::DecorationMode::Server, self.scale);
+        let usable = self.usable_physical();
+        // The frame's footprint (physical).
+        let outer_w = size.0.saturating_add(insets.width());
+        let outer_h = size.1.saturating_add(insets.height());
+        if outer_w > usable.w || outer_h > usable.h {
+            // The terminal anchor: the frame's corner at the usable
+            // origin (the band visible; the overflow the policy's
+            // own doctrine — Fill occludes under the dock, the
+            // corner stack accumulates).
+            return (usable.x + insets.left as i32, usable.y + insets.top as i32);
+        }
+        // The frame's top-left, clamped pixel-true into the usable
+        // area (the frame's edges, never the content's).
+        let fx = (scale_axis(x, self.scale) - insets.left as i32)
+            .clamp(usable.x, usable.right() - outer_w as i32);
+        let fy = (scale_axis(y, self.scale) - insets.top as i32)
+            .clamp(usable.y, usable.bottom() - outer_h as i32);
+        (fx + insets.left as i32, fy + insets.top as i32)
     }
 
     /// Re-place a mapped root for the *current* layout (the
     /// migration arm): a phone re-anchors at the usable origin; a
     /// desktop clamps the window fully inside the usable area.
     /// Returns the new position.
+    ///
+    /// `chrome` (Phase 56): the root's *applied* insets when it
+    /// serves server-drawn chrome (the live truth — a fullscreen
+    /// window's zero insets migrate as plain geometry), and the
+    /// re-placement answers in **frame space**: the phone stack
+    /// re-anchors the *frame* at the usable origin, the desktop
+    /// clamps the *frame* inside the usable area. `None` keeps the
+    /// pre-Phase-56 doctrine verbatim (plain and client-decorated
+    /// windows never moved).
     #[must_use]
-    pub fn replace_root(&self, bounds: Rect) -> (i32, i32) {
+    pub fn replace_root(&self, bounds: Rect, chrome: Option<ldp_shell::ssd::Insets>) -> (i32, i32) {
+        if let Some(insets) = chrome {
+            let usable = self.usable_physical();
+            if self.layout.class.default_policy() == PlacementPolicy::Fill {
+                // The phone's one-app stack: the frame re-anchors at
+                // the usable origin (the band the first thing on the
+                // new screen).
+                return (usable.x + insets.left as i32, usable.y + insets.top as i32);
+            }
+            // The desktop's clamp: the frame fully inside, the
+            // content riding within it.
+            return clamp_chrome(bounds, insets, usable);
+        }
         // Bounds arrive physical (the tree's space); the re-placement
         // resolves logically; the answer lands physically.
         let logical = unscale_rect(bounds, self.scale);
@@ -534,6 +596,18 @@ fn dock_geometry(w: u32, h: u32) -> BufferGeometry {
 pub const BAND_RGB: [u8; 3] = [238, 241, 246];
 /// The title band's alpha.
 pub const BAND_ALPHA: u8 = 250;
+/// The title band's Liquid veil (Phase 55): the dressed band's own ink
+/// drops from the flat near-opaque bar to a light veil, because the
+/// frost pane beneath it — the chrome material's backdrop — is the
+/// rest of the look. 168 keeps the band's tint the anchor of the
+/// lightness (over any backdrop the band still reads light, the dark
+/// title ink still reads dark — the readability floor the drawn chrome
+/// owes its text), while a third of the frosted backdrop's color shows
+/// through (the glass read: a red window under the band warms it, a
+/// blue one cools it). `Minimal` never dresses: the flat 250-alpha bar
+/// is that tier's honest look, byte-identical to every Phase 52-54
+/// oracle.
+pub const BAND_ALPHA_LIQUID: u8 = 168;
 /// The border ring's ink: a crisp, fully-opaque hairline.
 pub const RING_RGB: [u8; 3] = [176, 180, 192];
 /// The border ring's alpha.
@@ -551,9 +625,12 @@ pub const GLYPH_ALPHA: u8 = 255;
 const GLYPH_STROKE: u32 = 2;
 
 /// The chrome raster's shape key: the frame's size, the band split
-/// (the applied insets), and the close affordance's scaled geometry —
-/// the scale's whole effect on the ink (two outputs whose insets
-/// coincide carry distinct keys whenever the button's metrics do).
+/// (the applied insets), the close affordance's scaled geometry, and
+/// the ink's material variant (Phase 55: the dressed band paints a
+/// different veil than the flat bar — the ink's stateless inputs are
+/// geometry *and* material, so the cache key carries both) — the
+/// scale's whole effect on the ink (two outputs whose insets coincide
+/// carry distinct keys whenever the button's metrics do).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ChromeShape {
     /// The frame's width.
@@ -572,6 +649,11 @@ pub struct ChromeShape {
     pub close: u32,
     /// The close affordance's scaled margin.
     pub margin: u32,
+    /// The dressed-band variant (Phase 55): `true` paints the Liquid
+    /// veil, `false` the flat legacy bar. The compositor's tier decides
+    /// it once per process; the key keeps the two rasters honest if
+    /// that ever changes.
+    pub liquid: bool,
 }
 
 /// One cached chrome raster: the ink, its validated geometry, and
@@ -595,12 +677,19 @@ pub struct ChromeRaster {
 /// (`toplevel.close`, the frozen event's first sender). CPU ink on
 /// the dock's own model (no framebuffer, the honest `NoFb` demotion;
 /// a visible band pins the frame to the composite arm), cached per
-/// frame *shape* (the ink is stateless — geometry is its only input,
-/// so same-shaped windows share one raster; a resize re-paints).
+/// frame *shape* (the ink is stateless — geometry and the material
+/// variant are its only inputs, so same-shaped windows share one
+/// raster; a resize re-paints). Phase 55: at a Liquid tier the grade
+/// walk dresses the raster's layer in [`chrome_style`] — the chrome
+/// material over the ink — while the ink itself paints the Liquid
+/// veil ([`BAND_ALPHA_LIQUID`]) so the frost reads through the band.
 #[derive(Debug, Default)]
 pub struct ChromePass {
     /// The raster cache, one per distinct shape.
     rasters: std::collections::HashMap<ChromeShape, ChromeRaster>,
+    /// The title-strip cache (Phase 54), one per distinct
+    /// (title, px, budget) — the ink's stateless inputs.
+    strips: std::collections::HashMap<StripKey, ChromeStrip>,
     /// The raster counter (identities mint `KEY_BASE + n`).
     next: u64,
 }
@@ -626,7 +715,9 @@ impl ChromePass {
         scene: &crate::scene::Scene,
         toplevels: &ToplevelHost,
         scale: ldp_core::scale::ScaleFactor,
+        effects: ldp_renderer::EffectTier,
     ) {
+        let liquid = effects != ldp_renderer::EffectTier::Minimal;
         let mut wanted: Vec<ChromeShape> = Vec::new();
         for id in snapshot.render_order() {
             let Some(node) = snapshot.node(*id) else {
@@ -639,7 +730,7 @@ impl ChromePass {
                 continue;
             }
             if let Some((frame, insets)) = chrome_geometry(toplevels, *id, node.bounds) {
-                let shape = ChromeShape::of(frame, insets, scale);
+                let shape = ChromeShape::of(frame, insets, scale, liquid);
                 if !wanted.contains(&shape) {
                     wanted.push(shape);
                 }
@@ -665,6 +756,73 @@ impl ChromePass {
                     .insert(shape, ChromeRaster { key, ink, geometry });
             }
         }
+        // Phase 54 — the title strips: the same serving walk, asking
+        // the title's own truth (the strip's key carries the ink's
+        // whole state — the base raster stays shape-shared, the
+        // title's bytes ride their own layer).
+        for id in snapshot.render_order() {
+            let Some(node) = snapshot.node(*id) else {
+                continue;
+            };
+            if !node.mapped
+                || scene.hidden.contains(id)
+                || !scene.routes.get(id).is_some_and(|r| r.buffer.is_some())
+            {
+                continue;
+            }
+            if let Some((frame, insets)) = chrome_geometry(toplevels, *id, node.bounds) {
+                if let Some((skey, _)) = title_strip(toplevels, *id, frame, insets, scale) {
+                    if !self.strips.contains_key(&skey) {
+                        let mut strip = paint_title_strip(&skey);
+                        let key = CHROME_KEY_BASE + self.next;
+                        self.next += 1;
+                        strip.key = key;
+                        self.strips.insert(skey, strip);
+                    }
+                }
+            }
+        }
+        // Phase 57 — the chrome ghosts: the fading bands. The cache
+        // never evicts, so a band that served keeps its raster past
+        // its window's death — but the *want* must name it: the
+        // window is gone from the serving walk above, and a window
+        // destroyed before its first rendered frame with chrome would
+        // otherwise fade a band the grade walk skips. The ghost's
+        // frozen shape and strip key are the want's own truth (the
+        // same keys the walk will ask), so the prepare and the walk
+        // cannot diverge — the cache's own doctrine.
+        for ghost in &scene.ghosts.ghosts {
+            let Some(chrome) = ghost.chrome.as_ref() else {
+                continue;
+            };
+            if !self.rasters.contains_key(&chrome.shape) {
+                let ink = paint_chrome(
+                    chrome.shape.w,
+                    chrome.shape.h,
+                    ldp_shell::ssd::Insets {
+                        left: chrome.shape.left,
+                        top: chrome.shape.top,
+                        right: chrome.shape.right,
+                        bottom: chrome.shape.bottom,
+                    },
+                    chrome.shape,
+                );
+                let geometry = dock_geometry(chrome.shape.w, chrome.shape.h);
+                let key = CHROME_KEY_BASE + self.next;
+                self.next += 1;
+                self.rasters
+                    .insert(chrome.shape, ChromeRaster { key, ink, geometry });
+            }
+            if let Some((skey, _)) = chrome.strip.as_ref() {
+                if !self.strips.contains_key(skey) {
+                    let mut strip = paint_title_strip(skey);
+                    let key = CHROME_KEY_BASE + self.next;
+                    self.next += 1;
+                    strip.key = key;
+                    self.strips.insert(skey.clone(), strip);
+                }
+            }
+        }
     }
 
     /// The prepared raster for one shape (the grade walk's read
@@ -679,12 +837,14 @@ impl ChromePass {
 
 impl ChromeShape {
     /// The shape of one serving chrome: its frame, the applied band
-    /// split, and the scaled close-affordance metrics.
+    /// split, the scaled close-affordance metrics, and the material
+    /// variant (the tier's `liquid` — see [`BAND_ALPHA_LIQUID`]).
     #[must_use]
     pub fn of(
         frame: Rect,
         insets: ldp_shell::ssd::Insets,
         scale: ldp_core::scale::ScaleFactor,
+        liquid: bool,
     ) -> ChromeShape {
         ChromeShape {
             w: frame.w,
@@ -695,8 +855,22 @@ impl ChromeShape {
             bottom: insets.bottom,
             close: scale.scale_px_up(ldp_shell::ssd::CLOSE_SIZE),
             margin: scale.scale_px_up(ldp_shell::ssd::CLOSE_MARGIN),
+            liquid,
         }
     }
+}
+
+/// The drawn chrome's Liquid dressing (Phase 55): the **chrome
+/// material** — the dock's own ([`ldp_renderer::Material::Chrome`]:
+/// the Sheet frost, the shadow cleared, the chrome hairline tracing
+/// the frame's top edge). One truth for all system chrome: the band
+/// and the bar speak the same material, resolved at the same tier.
+/// `Minimal` resolves plain — the tier's quality budget, never a lie
+/// (the flat bar is that tier's honest look, every pre-Phase-55 byte
+/// intact).
+#[must_use]
+pub fn chrome_style(tier: ldp_renderer::EffectTier) -> LayerStyle {
+    ldp_renderer::Material::Chrome.style(tier)
 }
 
 /// The one geometry truth of the drawn chrome (Phase 52): the frame
@@ -729,13 +903,23 @@ pub fn chrome_geometry(
 /// ARGB8888 premultiplied, tightly packed, frame-sized, the content
 /// hole transparent. Degenerate frames (thinner than their own band)
 /// saturate per side; the painter never writes outside its bounds.
+/// Phase 55: the shape's `liquid` variant paints the band's word at
+/// the Liquid veil (`BAND_ALPHA_LIQUID`) — the dressing's ink half;
+/// the layer style (the frost, the hairline) is the grade walk's.
 fn paint_chrome(
     frame_w: u32,
     frame_h: u32,
     band: ldp_shell::ssd::Insets,
     shape: ChromeShape,
 ) -> Vec<u8> {
-    let band_word = prem_word(BAND_RGB, BAND_ALPHA);
+    let band_word = prem_word(
+        BAND_RGB,
+        if shape.liquid {
+            BAND_ALPHA_LIQUID
+        } else {
+            BAND_ALPHA
+        },
+    );
     let ring_word = prem_word(RING_RGB, RING_ALPHA);
     let close_word = prem_word(CLOSE_RGB, CLOSE_ALPHA);
     let glyph_word = prem_word(GLYPH_RGB, GLYPH_ALPHA);
@@ -1891,9 +2075,9 @@ mod tests {
     fn place_root_cascades_on_desktop() {
         let mut s = Shell::new(ShellConfig::default());
         s.relayout((960, 540), ldp_core::scale::ScaleFactor::IDENTITY, true);
-        assert_eq!(s.place_root((400, 300)), (0, 0));
-        assert_eq!(s.place_root((400, 300)), (24, 24));
-        assert_eq!(s.place_root((400, 300)), (48, 48));
+        assert_eq!(s.place_root((400, 300), false), (0, 0));
+        assert_eq!(s.place_root((400, 300), false), (24, 24));
+        assert_eq!(s.place_root((400, 300), false), (48, 48));
     }
 
     #[test]
@@ -1904,11 +2088,11 @@ mod tests {
         });
         s.relayout((540, 960), ldp_core::scale::ScaleFactor::IDENTITY, true);
         // Above the dock: the usable origin.
-        assert_eq!(s.place_root((540, 876)), (0, 0));
-        assert_eq!(s.place_root((300, 400)), (0, 0));
+        assert_eq!(s.place_root((540, 876), false), (0, 0));
+        assert_eq!(s.place_root((300, 400), false), (0, 0));
         // An oversized app anchors too (overflow is occluded by the
         // dock, never cropped).
-        assert_eq!(s.place_root((540, 960)), (0, 0));
+        assert_eq!(s.place_root((540, 960), false), (0, 0));
     }
 
     #[test]
@@ -1918,11 +2102,119 @@ mod tests {
             dock_thickness: 84,
         });
         phone.relayout((540, 960), ldp_core::scale::ScaleFactor::IDENTITY, true);
-        assert_eq!(phone.replace_root(Rect::new(30, 30, 540, 876)), (0, 0));
+        assert_eq!(
+            phone.replace_root(Rect::new(30, 30, 540, 876), None),
+            (0, 0)
+        );
         let mut desk = Shell::new(ShellConfig::default());
         desk.relayout((960, 540), ldp_core::scale::ScaleFactor::IDENTITY, true);
         // A window overhanging the right/bottom edges is pushed in.
-        assert_eq!(desk.replace_root(Rect::new(800, 400, 400, 300)), (560, 240));
+        assert_eq!(
+            desk.replace_root(Rect::new(800, 400, 400, 300), None),
+            (560, 240)
+        );
+    }
+
+    /// The Lion chrome at 1x (the machine's own applied insets for a
+    /// server-decorated window).
+    const BAND: ldp_shell::ssd::Insets = ldp_shell::ssd::Insets {
+        left: 1,
+        top: 29,
+        right: 1,
+        bottom: 1,
+    };
+
+    #[test]
+    fn place_root_steps_the_cascade_by_frames() {
+        // Phase 56: a server-decorated window's *frame* takes the
+        // slot — the content rides inside, the band on-screen.
+        let mut s = Shell::new(ShellConfig::default());
+        s.relayout((960, 540), ldp_core::scale::ScaleFactor::IDENTITY, true);
+        assert_eq!(s.place_root((400, 300), true), (1, 29));
+        assert_eq!(s.place_root((400, 300), true), (25, 53));
+        assert_eq!(s.place_root((400, 300), true), (49, 77));
+        // The catch keeps the frame's edge (not the content's):
+        // 540 - 330 = 210, so the 9th step (216) clamps to 210+29.
+        let mut t = Shell::new(ShellConfig::default());
+        t.relayout((960, 540), ldp_core::scale::ScaleFactor::IDENTITY, true);
+        for _ in 0..9 {
+            let _ = t.place_root((400, 300), true);
+        }
+        assert_eq!(t.place_root((400, 300), true), (217, 239));
+    }
+
+    #[test]
+    fn place_root_parks_the_band_on_the_phone() {
+        // The phone stack: the frame anchors at the usable origin —
+        // the band is the first thing on the screen, the content
+        // below it, the overflow still under the dock.
+        let mut s = Shell::new(ShellConfig {
+            dock: DockMode::Auto,
+            dock_thickness: 84,
+        });
+        s.relayout((540, 960), ldp_core::scale::ScaleFactor::IDENTITY, true);
+        assert_eq!(s.place_root((540, 876), true), (1, 29));
+        assert_eq!(s.place_root((300, 400), true), (1, 29));
+        // An oversized app anchors its frame too — the band visible,
+        // the overflow the Fill doctrine's own.
+        assert_eq!(s.place_root((540, 960), true), (1, 29));
+    }
+
+    #[test]
+    fn place_root_scales_the_band_with_the_output() {
+        // A 2x panel: the logical canvas is 960x540 (the desktop
+        // class), the insets double, the cascade steps double — and
+        // the band's top edge sits exactly at the frame's y=0.
+        let two = ldp_core::scale::ScaleFactor::from_f32_lossy(2.0).unwrap();
+        let mut s = Shell::new(ShellConfig::default());
+        s.relayout((1920, 1080), two, true);
+        assert_eq!(s.place_root((800, 600), true), (2, 58));
+        assert_eq!(s.place_root((800, 600), true), (50, 106));
+        // The fractional factor: the physical clamp is the last
+        // word — the band never shaves its top edge. 1.25x: logical
+        // 29 scales to 36, but the applied inset is 37; the clamp
+        // holds the frame at y=0 (content 37).
+        let q = ldp_core::scale::ScaleFactor::from_f32_lossy(1.25).unwrap();
+        let mut f = Shell::new(ShellConfig::default());
+        f.relayout((2400, 1350), q, true);
+        assert_eq!(f.place_root((400, 300), true), (2, 37));
+    }
+
+    #[test]
+    fn replace_root_replaces_the_frame() {
+        // The migration arm with chrome: the phone re-anchors the
+        // frame; the desktop clamps the frame.
+        let mut phone = Shell::new(ShellConfig {
+            dock: DockMode::Auto,
+            dock_thickness: 84,
+        });
+        phone.relayout((540, 960), ldp_core::scale::ScaleFactor::IDENTITY, true);
+        assert_eq!(
+            phone.replace_root(Rect::new(30, 30, 540, 876), Some(BAND)),
+            (1, 29)
+        );
+        // A fullscreen window's zero insets migrate as plain
+        // geometry — the no-chrome answer exactly.
+        assert_eq!(
+            phone.replace_root(
+                Rect::new(30, 30, 540, 876),
+                Some(ldp_shell::ssd::Insets::ZERO)
+            ),
+            (0, 0)
+        );
+        let mut desk = Shell::new(ShellConfig::default());
+        desk.relayout((960, 540), ldp_core::scale::ScaleFactor::IDENTITY, true);
+        // A band riding above the display is pulled down; the frame's
+        // edges are the clamp's truth.
+        assert_eq!(
+            desk.replace_root(Rect::new(24, 24, 400, 300), Some(BAND)),
+            (24, 29)
+        );
+        // A frame overhanging the bottom is pushed up.
+        assert_eq!(
+            desk.replace_root(Rect::new(100, 260, 400, 300), Some(BAND)),
+            (100, 239)
+        );
     }
 
     #[test]
@@ -2375,7 +2667,15 @@ mod tests {
             bottom: 1,
             close: 20,
             margin: 5,
+            liquid: false,
         }
+    }
+
+    /// The same shape, Liquid-dressed (the dressing's ink half).
+    fn lion_shape_liquid(w: u32, h: u32) -> ChromeShape {
+        let mut s = lion_shape(w, h);
+        s.liquid = true;
+        s
     }
 
     #[test]
@@ -2457,6 +2757,7 @@ mod tests {
             bottom: 2,
             close: 40,
             margin: 10,
+            liquid: false,
         };
         let ink = paint_chrome(200, 100, band, shape);
         let close_word = prem_word(CLOSE_RGB, CLOSE_ALPHA);
@@ -2494,6 +2795,7 @@ mod tests {
                 bottom: 1,
                 close: 20,
                 margin: 5,
+                liquid: false,
             },
         );
         assert_eq!(ink.len(), 4 * 3 * 4);
@@ -2522,6 +2824,43 @@ mod tests {
         let b = prem_word(BAND_RGB, BAND_ALPHA);
         let r = (u32::from(BAND_RGB[0]) * 250 + 127) / 255;
         assert_eq!((b >> 16) & 0xFF, r);
+        // The dressed band's word (the Phase 55 veil — the Liquid
+        // pixel oracle's own).
+        let l = prem_word(BAND_RGB, BAND_ALPHA_LIQUID);
+        let lr = (u32::from(BAND_RGB[0]) * u32::from(BAND_ALPHA_LIQUID) + 127) / 255;
+        assert_eq!((l >> 16) & 0xFF, lr);
+        assert_eq!(l >> 24, u32::from(BAND_ALPHA_LIQUID));
+    }
+
+    #[test]
+    fn the_liquid_band_paints_the_veil_and_the_rest_stands() {
+        // The dressing's ink half: the band's word drops to the veil,
+        // the ring, the capsule, and the glyph keep their opaque words
+        // (the frame's edges stay crisp, the farewell grip stays a
+        // grip), and the hole stays transparent.
+        let band = ldp_shell::ssd::Insets {
+            left: 1,
+            top: 29,
+            right: 1,
+            bottom: 1,
+        };
+        let flat = paint_chrome(100, 50, band, lion_shape(100, 50));
+        let liquid = paint_chrome(100, 50, band, lion_shape_liquid(100, 50));
+        let veil = prem_word(BAND_RGB, BAND_ALPHA_LIQUID);
+        let flat_band = prem_word(BAND_RGB, BAND_ALPHA);
+        let ring_word = prem_word(RING_RGB, RING_ALPHA);
+        // The band's middle: the veil, not the flat bar.
+        assert_eq!(word_at(&liquid, 100, 5, 12), veil);
+        assert_eq!(word_at(&flat, 100, 5, 12), flat_band);
+        assert_ne!(veil, flat_band);
+        // The ring and the hole: identical between the variants.
+        assert_eq!(word_at(&liquid, 100, 0, 40), ring_word);
+        assert_eq!(word_at(&liquid, 100, 0, 40), word_at(&flat, 100, 0, 40));
+        assert_eq!(word_at(&liquid, 100, 30, 30), 0);
+        // The capsule: the same warm word either way (a point inside
+        // the capsule but off the glyph's strokes).
+        assert_eq!(word_at(&liquid, 100, 78, 6), word_at(&flat, 100, 78, 6));
+        assert_eq!(word_at(&liquid, 100, 78, 6) >> 24, u32::from(CLOSE_ALPHA));
     }
 
     #[test]
@@ -2534,13 +2873,184 @@ mod tests {
         };
         let frame = Rect::new(0, 0, 100, 50);
         let sf = |v: f32| ldp_core::scale::ScaleFactor::from_f32_lossy(v).unwrap();
-        let one = ChromeShape::of(frame, insets, sf(1.0));
-        let two = ChromeShape::of(frame, insets, sf(2.0));
+        let one = ChromeShape::of(frame, insets, sf(1.0), false);
+        let two = ChromeShape::of(frame, insets, sf(2.0), false);
         assert_eq!(one, lion_shape(100, 50));
         assert_ne!(one, two);
         assert_eq!(two.close, 40);
         assert_eq!(two.margin, 10);
         // Identical inputs share the key (the cache's whole point).
-        assert_eq!(ChromeShape::of(frame, insets, sf(1.0)), one);
+        assert_eq!(ChromeShape::of(frame, insets, sf(1.0), false), one);
+        // The material variant keys its own raster (Phase 55: the
+        // dressed veil and the flat bar never share ink).
+        let dressed = ChromeShape::of(frame, insets, sf(1.0), true);
+        assert_ne!(one, dressed);
+        assert_eq!(dressed, lion_shape_liquid(100, 50));
+        assert_ne!(dressed, two);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 54 — the title glyph (the drawn strip over the band)
+// ---------------------------------------------------------------------------
+
+/// The title ink: a calm dark slate over the light band (the drawn
+/// chrome's text). `pub` for the pixel oracle's honesty.
+pub const TITLE_RGB: [u8; 3] = [22, 26, 33];
+/// The title ink's alpha (full — the antialiased glyph edges carry
+/// their own coverage in the premultiplied words).
+pub const TITLE_ALPHA: u8 = 255;
+
+/// The title strip's cache key: the title, the font's pixel size, and
+/// the width budget — the ink's complete stateless inputs (same title
+/// and budget, same bytes; the cache never depends on the window).
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct StripKey {
+    /// The title as the machine holds it (bounded, NUL-free).
+    pub title: Box<str>,
+    /// The font size (device px).
+    pub px: u32,
+    /// The truncation budget (device px).
+    pub avail: u32,
+}
+
+/// One prepared title strip: the tinted glyph ink (ARGB8888
+/// premultiplied, tightly packed) and its validated geometry.
+#[derive(Debug)]
+pub struct ChromeStrip {
+    /// The strip's identity (the renderer's cache key).
+    pub key: u64,
+    /// The ink: `w · 4` bytes per row, coverage-tinted, the strip's
+    /// ink box exactly.
+    pub ink: Vec<u8>,
+    /// The ink's validated geometry (the renderer's view contract).
+    pub geometry: BufferGeometry,
+}
+
+/// The one title truth (Phase 54): the strip a serving window's title
+/// draws — its cache key and its frame-relative rect — `None` when
+/// the window draws no title: no chrome (the [`chrome_geometry`]
+/// gates), an empty title, a blanks-only title, or a budget too small
+/// to hold a glyph. The prepare, the grade walk, and the claims
+/// ledger all read this one answer; the strip's pixels never diverge
+/// from its claims.
+pub fn title_strip(
+    toplevels: &ToplevelHost,
+    surface: ldp_compositor::surface::SurfaceId,
+    frame: Rect,
+    insets: ldp_shell::ssd::Insets,
+    scale: ldp_core::scale::ScaleFactor,
+) -> Option<(StripKey, Rect)> {
+    // `chrome_geometry`'s role truth has already gated the caller; the
+    // title follows the same gate independently (the strip is chrome).
+    let entry = toplevels.by_surface(surface)?;
+    if entry.decoration != ldp_shell::ssd::DecorationMode::Server {
+        return None;
+    }
+    let title = entry.machine.title();
+    if title.is_empty() {
+        return None;
+    }
+    let spec = ldp_shell::ssd::title_spec(frame.w, insets, scale, &ldp_font::LION_SANS);
+    if spec.avail == 0 {
+        return None;
+    }
+    let run = ldp_font::LION_SANS.layout(title, spec.px, spec.avail);
+    let ink = run.ink?;
+    // The strip's rect: the ink box hung from the run's origin, in
+    // the frame's own (world) coordinates — the walk and the claims
+    // read it beside [`chrome_geometry`]'s frame, never apart. The
+    // right edge never crosses into the close affordance's territory
+    // (the truncation's own budget, clamped for the notdef
+    // overhang); the top never rides above the band's own top.
+    let x = i64::from(frame.x) + i64::from(spec.x) + i64::from(ink.min_x);
+    let y = i64::from(frame.y) + i64::from(spec.baseline) - i64::from(ink.top);
+    let w = u64::from(ink.width()).min(u64::from(spec.avail));
+    let h = u64::from(ink.height()).min(u64::from(insets.top));
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let x = x
+        .max(i64::from(frame.x))
+        .min(i64::from(frame.x) + i64::from(frame.w));
+    let y = y.max(i64::from(frame.y));
+    let rect = Rect::new(x as i32, y as i32, w as u32, h as u32);
+    if rect.is_empty() {
+        return None;
+    }
+    Some((
+        StripKey {
+            title: Box::from(title),
+            px: spec.px,
+            avail: spec.avail,
+        },
+        rect,
+    ))
+}
+
+/// Paint one title strip's ink (Phase 54): the glyph coverage tinted
+/// into premultiplied ARGB words — deterministic (the same key, the
+/// same bytes: the oracle's doctrine), the blit clipped to the
+/// budget's own clamp.
+fn paint_title_strip(key: &StripKey) -> ChromeStrip {
+    let run = ldp_font::LION_SANS.layout(&key.title, key.px, key.avail);
+    let ink = run
+        .ink
+        .expect("the strip's key requires an ink box (title_strip's gate)");
+    let strip_w = ink.width().min(key.avail).max(1);
+    let strip_h = ink.height().max(1);
+    let mut words = vec![0u32; strip_w as usize * strip_h as usize];
+    for placed in &run.placed {
+        let glyph = ldp_font::LION_SANS.bitmap(placed.c, key.px);
+        if glyph.w == 0 || glyph.h == 0 {
+            continue;
+        }
+        let glyph_x = placed.x + glyph.x_off - ink.min_x;
+        let glyph_y = ink.top - glyph.y_top;
+        for row in 0..glyph.h as i32 {
+            for col in 0..glyph.w as i32 {
+                let x = glyph_x + col;
+                let y = glyph_y + row;
+                if x < 0 || y < 0 || x >= strip_w as i32 || y >= strip_h as i32 {
+                    continue;
+                }
+                let coverage = glyph.alpha[row as usize * glyph.w as usize + col as usize];
+                if coverage > 0 {
+                    // The coverage is the alpha; the tint rides the
+                    // premultiplied triple.
+                    words[y as usize * strip_w as usize + x as usize] =
+                        prem_word(TITLE_RGB, coverage);
+                }
+            }
+        }
+    }
+    let geometry = dock_geometry(strip_w, strip_h);
+    ChromeStrip {
+        key: 0, // minted by the caller (the pass's counter)
+        ink: words_to_bytes(&words),
+        geometry,
+    }
+}
+
+impl ChromePass {
+    /// The prepared strip for one key (the grade walk's read half).
+    /// `None` only if the prepare and the walk disagree — impossible
+    /// by construction (both ask [`title_strip`]), kept honest by
+    /// skipping the title that frame.
+    #[must_use]
+    pub fn strip(&self, key: &StripKey) -> Option<&ChromeStrip> {
+        self.strips.get(key)
+    }
+
+    /// The strips' count (the sharing proof's observable).
+    #[must_use]
+    pub fn strip_count(&self) -> usize {
+        self.strips.len()
+    }
+
+    /// The base rasters' count (the sharing proof's observable).
+    #[must_use]
+    pub fn raster_count(&self) -> usize {
+        self.rasters.len()
     }
 }

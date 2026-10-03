@@ -266,7 +266,49 @@ v0.17.0 the toplevel states arm is served whole (the frozen
 commit with the restore point; the visibility verbs with App-Nap
 frame parking and byte-exact restoration; `workspace_count` at bind,
 `set_workspace` with the clamped report — zero wire surface moved).
-v0.20.0
+v0.21.0
+closed the drawn chrome's first follow-on — the **server-side
+caption drag** (and v0.22.0 the second: the **title glyph** —
+Lion Sans, the compositor's own zero-dependency typeface with an
+analytic-coverage rasterizer serving the band's text as its own
+layer, pixel-true ellipsis truncation, the title change
+repainting on the server's own claim — DWM's caption text and
+WindowServer's title text answered with a face of our own, no
+system font stack anywhere in the binary; and v0.23.0 the third:
+the **Liquid chrome-material dressing** — the band wears the
+chrome material, the dock's own, at the machine's effects tier:
+the frost pane reading the backdrop beneath the veil, the chrome
+hairline, the rounded frame, `Minimal` keeping the flat bar —
+DWM's acrylic caption and WindowServer's vibrant title bar
+answered with the system's own glass, zero wire surface moved; and
+v0.24.0 the fourth: the **chrome-aware placement** — the placement
+engine answers in frame space, every arm parking the *frame* (the
+band and the border ring included) at the policy slot with the
+content riding inside: a parked window's caption renders from row
+0 of the display, the cascade steps *captions*, the physical
+clamp holds the band's top edge at fractional scale factors, and
+the chrome hit test went z-true (a higher window's band claims
+above a lower window's ink — the press follows the visible ink) —
+DWM's and WindowServer's frame-space placement answered with the
+compositor's own geometry, zero wire surface moved; and v0.25.0 the
+fifth: the **chrome ghost** — the close fade takes the whole window:
+the ghost's capture freezes the dying band's shape truth and the
+render path reads the same chrome cache the living desktop reads,
+pushing the band, the strip, and the content at the ghost's own z
+slot at the one close-spring opacity (the whole frame leaves as
+one), the claims and the vacates grown by the frame, a Liquid
+tier's frost still reading the canvas through the fade — DWM's
+genie and WindowServer's zoom carrying the title bar with the
+content, answered with the compositor's own choreography, zero
+wire surface moved): the drawn title bar is a move grip, the server
+minting the move drag itself at the pointer's first motion
+through the same machinery `start_move` owns (one machinery, two
+doors), the move server truth at the pump's cadence with zero
+configures, the click doctrine, the close button's own grip never
+converting, and the maximized-window demotion measured over the
+*frame* — DWM's `SC_MOVE`-by-caption and WindowServer's
+title-bar drag, answered server-side with the cadence on the
+record; zero wire movement, pure server-side machinery. v0.20.0
 closed the states arm's last follow-on whole — the SSD chrome pass
 and the server-initiated `close` event it carries: the drawn title
 bar, border ring, and close affordance painted as compositor-owned

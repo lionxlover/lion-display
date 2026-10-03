@@ -284,6 +284,77 @@ pub fn place(policy: PlacementPolicy, usable: Rect, size: (u32, u32), nth: u32) 
     }
 }
 
+/// Place a toplevel of content `size` that wears server-drawn chrome
+/// grown by `insets` (Phase 56 — the chrome-aware placement): the
+/// *frame* — the content grown by the insets, the band above, the
+/// border ring around — takes the policy slot, and the answer is the
+/// content position inside it. A window parked at the usable origin
+/// wears its top band *on* the screen, never above it; the cascade
+/// steps captions, the way every desktop a user has ever used does
+/// (DWM's work area answers in frame space; so does this one).
+///
+/// With [`crate::ssd::Insets::ZERO`] the answer is byte-identical
+/// to [`place`]`(...)` for every policy — the no-chrome path never
+/// moves, by construction.
+#[must_use]
+pub fn place_chrome(
+    policy: PlacementPolicy,
+    usable: Rect,
+    size: (u32, u32),
+    insets: crate::ssd::Insets,
+    nth: u32,
+) -> (i32, i32) {
+    // The frame's footprint: the content grown by the chrome.
+    let outer_w = size.0.saturating_add(insets.width());
+    let outer_h = size.1.saturating_add(insets.height());
+    let inside = |fx: i32, fy: i32| (fx + insets.left as i32, fy + insets.top as i32);
+    match policy {
+        // The frame anchors at the usable origin: a phone app's band
+        // is the first thing on the screen, its content below, its
+        // overflow still running under the dock (the Fill doctrine
+        // unchanged — the band rides above it, never occluded).
+        PlacementPolicy::Fill => inside(usable.x, usable.y),
+        PlacementPolicy::Cascade => {
+            // A frame that cannot fit anchors its corner at the
+            // origin (the terminal corner stack, band visible).
+            if outer_w >= usable.w || outer_h >= usable.h {
+                return inside(usable.x, usable.y);
+            }
+            let step = CASCADE_STEP.saturating_mul(nth as i32);
+            let max_x = usable.right() - outer_w as i32;
+            let max_y = usable.bottom() - outer_h as i32;
+            inside((usable.x + step).min(max_x), (usable.y + step).min(max_y))
+        }
+        PlacementPolicy::Center => {
+            let x = usable.x + (usable.w.saturating_sub(outer_w) / 2) as i32;
+            let y = usable.y + (usable.h.saturating_sub(outer_h) / 2) as i32;
+            inside(x, y)
+        }
+    }
+}
+
+/// Clamp a chrome-wearing window fully inside `usable` (the migration
+/// arm's answer, Phase 56): the *frame* — the content grown by
+/// `insets` — is the rectangle that must fit, and the answer is the
+/// content position inside the clamped frame. A frame larger than the
+/// usable area anchors its corner at the origin (the terminal
+/// doctrine, the band never left off-screen). With
+/// [`crate::ssd::Insets::ZERO`] the frame *is* the content and the
+/// answer matches [`clamp_into`] for the same rect.
+#[must_use]
+pub fn clamp_chrome(content: Rect, insets: crate::ssd::Insets, usable: Rect) -> (i32, i32) {
+    let fx = content.x - insets.left as i32;
+    let fy = content.y - insets.top as i32;
+    let outer_w = content.w.saturating_add(insets.width());
+    let outer_h = content.h.saturating_add(insets.height());
+    if outer_w > usable.w || outer_h > usable.h {
+        return (usable.x + insets.left as i32, usable.y + insets.top as i32);
+    }
+    let x = fx.clamp(usable.x, usable.right() - outer_w as i32);
+    let y = fy.clamp(usable.y, usable.bottom() - outer_h as i32);
+    (x + insets.left as i32, y + insets.top as i32)
+}
+
 /// Clamp a rectangle fully inside `usable`: pushed right/down (or
 /// left/up) so no edge overhangs. A rectangle larger than the usable
 /// area anchors at the usable origin (overflow is the caller's
@@ -517,6 +588,136 @@ mod tests {
         // Larger than usable: anchors at the origin.
         let r = clamp_into(Rect::new(30, 30, 900, 900), usable);
         assert_eq!(r, Rect::new(0, 84, 900, 900));
+    }
+
+    /// The Lion chrome at 1x (the SSD pass's own band + ring).
+    const BAND: crate::ssd::Insets = crate::ssd::Insets {
+        left: 1,
+        top: 29,
+        right: 1,
+        bottom: 1,
+    };
+
+    #[test]
+    fn chrome_placement_parks_the_frame_at_the_origin() {
+        // Fill: the frame anchors at the usable origin — the content
+        // rides inside, the band on-screen above it.
+        let usable = Rect::new(0, 0, 540, 876);
+        assert_eq!(
+            place_chrome(PlacementPolicy::Fill, usable, (540, 876), BAND, 0),
+            (1, 29)
+        );
+        // The terminal anchor (a frame that cannot fit) still keeps
+        // the band visible.
+        assert_eq!(
+            place_chrome(PlacementPolicy::Fill, usable, (540, 960), BAND, 0),
+            (1, 29)
+        );
+    }
+
+    #[test]
+    fn chrome_placement_steps_the_cascade_by_frames() {
+        let usable = Rect::new(0, 0, 960, 540);
+        // The frame takes the slot: content = slot + insets.
+        assert_eq!(
+            place_chrome(PlacementPolicy::Cascade, usable, (400, 300), BAND, 0),
+            (1, 29)
+        );
+        assert_eq!(
+            place_chrome(PlacementPolicy::Cascade, usable, (400, 300), BAND, 1),
+            (25, 53)
+        );
+        // The catch: the frame's edge, not the content's.
+        // max_y = 540 - (300 + 30) = 210; 24 * 8 = 192 < 210 keeps
+        // the step; 24 * 9 = 216 clamps.
+        assert_eq!(
+            place_chrome(PlacementPolicy::Cascade, usable, (400, 300), BAND, 9),
+            (217, 210 + 29)
+        );
+        // A frame that cannot fit: the corner stack, band visible.
+        assert_eq!(
+            place_chrome(PlacementPolicy::Cascade, usable, (960, 300), BAND, 3),
+            (1, 29)
+        );
+    }
+
+    #[test]
+    fn chrome_placement_centers_frames() {
+        let usable = Rect::new(0, 0, 960, 540);
+        // 960 - 402 = 558 / 2 = 279; 540 - 330 = 210 / 2 = 105.
+        assert_eq!(
+            place_chrome(PlacementPolicy::Center, usable, (400, 300), BAND, 0),
+            (280, 134)
+        );
+        // Wider than usable: the saturating center is the origin,
+        // the content rides at the inset (the overflow doctrine's
+        // honest look — the band still on-screen).
+        assert_eq!(
+            place_chrome(PlacementPolicy::Center, usable, (1200, 300), BAND, 0),
+            (1, 134)
+        );
+    }
+
+    #[test]
+    fn chrome_placement_is_the_placement_when_there_is_no_chrome() {
+        // THE zero-drift proof: Insets::ZERO answers place() exactly,
+        // every policy, every slot, sizes that fit and sizes that
+        // do not.
+        let usable = Rect::new(0, 40, 960, 500);
+        for policy in [
+            PlacementPolicy::Fill,
+            PlacementPolicy::Cascade,
+            PlacementPolicy::Center,
+        ] {
+            for nth in [0u32, 1, 5, 40] {
+                for size in [(400u32, 300u32), (1000, 300), (960, 540)] {
+                    assert_eq!(
+                        place_chrome(policy, usable, size, crate::ssd::Insets::ZERO, nth),
+                        place(policy, usable, size, nth),
+                        "zero insets must never move {policy:?} nth={nth} size={size:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn chrome_clamp_keeps_the_frame_inside() {
+        let usable = Rect::new(0, 0, 960, 540);
+        // A window whose band rides above the display (content at
+        // y=24, band top at -5): the frame is pushed down so the
+        // band's top edge sits at y=0; the content rides at 29.
+        assert_eq!(
+            clamp_chrome(Rect::new(24, 24, 400, 300), BAND, usable),
+            (24, 29)
+        );
+        // A frame overhanging the bottom (fy = 260 - 29 = 231 >
+        // 540 - 330): pushed up to 210, the content at 239.
+        assert_eq!(
+            clamp_chrome(Rect::new(100, 260, 400, 300), BAND, usable),
+            (100, 239)
+        );
+        // Already inside: the content stays where it is.
+        assert_eq!(
+            clamp_chrome(Rect::new(100, 100, 400, 300), BAND, usable),
+            (100, 100)
+        );
+        // A frame larger than usable: the corner anchor, band
+        // visible.
+        assert_eq!(
+            clamp_chrome(Rect::new(30, 30, 960, 540), BAND, usable),
+            (1, 29)
+        );
+        // THE zero-drift proof: no chrome, the clamp is clamp_into.
+        let plain = clamp_into(Rect::new(-30, -30, 200, 200), usable);
+        assert_eq!(
+            clamp_chrome(
+                Rect::new(-30, -30, 200, 200),
+                crate::ssd::Insets::ZERO,
+                usable
+            ),
+            (plain.x, plain.y)
+        );
     }
 
     #[test]

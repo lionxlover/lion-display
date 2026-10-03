@@ -740,7 +740,18 @@ impl World {
             } else {
                 surface.last_bounds()
             };
-            let (next_x, next_y) = self.shell.replace_root(root_bounds);
+            // Phase 56 — the chrome-aware re-placement: a root serving
+            // the drawn chrome re-places in *frame space*, its *applied*
+            // insets the live truth (a fullscreen window's zero insets
+            // migrate as plain geometry; the band never rides above the
+            // new screen).
+            let chrome = self
+                .toplevels
+                .by_surface(id)
+                .filter(|t| t.decoration == ldp_shell::ssd::DecorationMode::Server)
+                .and_then(|t| t.machine.applied())
+                .map(|applied| applied.insets);
+            let (next_x, next_y) = self.shell.replace_root(root_bounds, chrome);
             self.scene.tree.set_position_now(id, next_x, next_y).ok();
         }
     }

@@ -77,7 +77,8 @@ pub use composite::RenderStats;
 pub use effects::{
     blur_words, edge_light_material, frost_material, over_premul, pack_canonical, rounded_coverage,
     scale_premul, shadow_material, unpack_canonical, BlurEdge, EdgeMemo, FrostMemo, MaterialCache,
-    EDGE_MEMO_ENTRIES, FROST_MEMO_ENTRIES, MATERIAL_CACHE_BUDGET_WORDS, MATERIAL_CACHE_MAX_ENTRIES,
+    EDGE_MEMO_ENTRIES, FROST_MEMO_BUDGET_WORDS, FROST_MEMO_ENTRIES, MATERIAL_CACHE_BUDGET_WORDS,
+    MATERIAL_CACHE_MAX_ENTRIES,
 };
 pub use errors::RendererError;
 pub use gles::{

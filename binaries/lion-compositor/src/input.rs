@@ -39,6 +39,18 @@
 //! here (the machine's two-phase commit) — and the button's release
 //! retires it. The `advance_drag`/`end_drag` methods below and the
 //! shell's `DragHost` carry the mechanism's own story.
+//!
+//! Phase 53 — the caption grip: the drawn band the Phase 52 pass
+//! paints is now a *move grip* on the Phase 50 machinery. A press the
+//! band claims arms the chrome grip as before (consumed, focusing);
+//! the pointer's first motion *converts* it — the server mints the
+//! move drag itself (`mint_pointer_drag`, the dispatcher's
+//! `start_move` arm's own machinery, the maximized-window demotion
+//! included), and from there the pump's advance owns the narrative:
+//! the window tracks the hand rigidly from the press point, zero
+//! configures, the release consumed like every band button. The
+//! client's `start_move` door stands — the caption is the second
+//! door into the same room.
 
 #![forbid(unsafe_code)]
 
@@ -205,8 +217,14 @@ struct ChromeArms {
 /// serves — the press on the band *arms* the grip, the release inside
 /// the same window's close affordance *fires* the close ask (the
 /// frozen `toplevel.close` event's first sender), a drag away
-/// cancels it. The grip is the pump's own state: the router never
-/// learns the band's buttons (they never route to the client).
+/// cancels it. Phase 53 — the caption doctrine: a grip armed on the
+/// band *outside* the close affordance converts at the pointer's
+/// first motion into the server-side move drag (the drawn title bar
+/// is a move grip on the Phase 50 machinery); the grip stands through
+/// the drag (its release stays consumed — the band's buttons never
+/// route to the client), and the close arm's own grip never converts
+/// (the drag-away cancel is its doctrine). The grip is the pump's own
+/// state: the router never learns the band's buttons.
 #[derive(Clone, Copy, Debug)]
 struct ChromeGrip {
     /// The window whose band was pressed.
@@ -469,6 +487,182 @@ impl World {
         }
     }
 
+    /// The pointer drag's grip mint (Phase 50's dispatcher arm, Phase
+    /// 53's caption conversion — one machinery, two doors): the
+    /// demotion a geometry-stated window dragged by its grip serves
+    /// (the states released, the restore size re-clamped, the window
+    /// detached under the pointer's *proportional* grip — measured
+    /// over the drawn frame when the chrome serves, the content rect
+    /// when it does not, so the hand keeps its grip on the caption it
+    /// actually holds), then the [`crate::shell::LiveDrag`] minted and
+    /// begun (one hand: a fresh grip retires any live one). Returns
+    /// the demotion's configure proposal when one happened — the
+    /// caller emits it (the dispatcher over the request's wake, the
+    /// pump over the outbox).
+    #[allow(clippy::too_many_lines)] // one narrative: the demotion, then the grip
+    pub(crate) fn mint_pointer_drag(
+        &mut self,
+        client: u32,
+        object: u32,
+        surface: SurfaceId,
+        mode: crate::shell::DragMode,
+    ) -> Option<ldp_shell::toplevel::Configure> {
+        let wanted = self.toplevels.entry(client, object)?.machine.wanted();
+        // The belt-and-braces eligibility (the dispatcher refused the
+        // dead window typed at its own door; the caption path never
+        // mints a dead grip): a grip needs a mapped, visible window.
+        let mapped = self
+            .scene
+            .tree
+            .get(surface)
+            .is_some_and(|s| s.state().is_mapped());
+        if !mapped || self.scene.hidden.contains(&surface) {
+            return None;
+        }
+        let rect = self.scene.tree.get(surface).map_or(
+            ldp_core::geometry::Rect::new(0, 0, 1, 1),
+            Surface::last_bounds,
+        );
+        let policy = self.toplevel_policy(surface, None);
+        let pointer = self.input.pointer_position();
+        // The demotion: a geometry-stated window dragged by its grip
+        // releases the states and restores its floating size (the move
+        // only — the resize's geometry refusal stands typed at the
+        // dispatcher's door).
+        let demotion = if mode == crate::shell::DragMode::Move
+            && (wanted.maximized() || wanted.fullscreen())
+        {
+            // The restore size: the floating size at the geometry
+            // engagement, the workspace's two-thirds as the
+            // never-floated fallback (the DWM default-size doctrine).
+            let (mut rw, mut rh) = self
+                .toplevels
+                .entry(client, object)
+                .and_then(|e| e.restore_size)
+                .filter(|(w, h)| *w > 0 && *h > 0)
+                .unwrap_or((
+                    policy.workspace_area.w / 3 * 2,
+                    policy.workspace_area.h / 3 * 2,
+                ));
+            // Clamp against the hints (logical).
+            if let Some(e) = self.toplevels.entry_mut(client, object) {
+                let clamped = e.machine.clamp_size(rw, rh);
+                if clamped.0 > 0 && clamped.1 > 0 {
+                    (rw, rh) = clamped;
+                }
+            }
+            let phys_w = crate::shell::scale_axis(rw as i32, policy.scale);
+            let phys_h = crate::shell::scale_axis(rh as i32, policy.scale);
+            // The grip rect: the drawn frame when the chrome serves
+            // (the caption the hand actually grips — Phase 53's caption
+            // drag demotes a maximized window by the band it pressed),
+            // the content rect when it does not (CSD — the Phase 50
+            // pins untouched).
+            let chrome = crate::shell::chrome_geometry(&self.toplevels, surface, rect);
+            let (grip, insets) = match chrome {
+                Some((frame, applied)) => (frame, applied),
+                None => (rect, ldp_shell::ssd::Insets::ZERO),
+            };
+            // The anchored start: the pointer's proportional grip on
+            // the rect it pressed maps onto the restored window — the
+            // restored *frame* (the restore content plus the applied
+            // insets) when the chrome serves, the content when it does
+            // not. The window pops under the hand; the size realizes
+            // at the client's cadence — never tearing.
+            let (gw, gh) = (grip.w as f32, grip.h as f32);
+            let ratio_x = if gw > 0.0 {
+                ((pointer.0 - grip.x as f32) / gw).clamp(0.0, 1.0)
+            } else {
+                0.5
+            };
+            let ratio_y = if gh > 0.0 {
+                ((pointer.1 - grip.y as f32) / gh).clamp(0.0, 1.0)
+            } else {
+                0.5
+            };
+            let frame_w = phys_w + i32::try_from(insets.width()).unwrap_or(0);
+            let frame_h = phys_h + i32::try_from(insets.height()).unwrap_or(0);
+            let anchor_x = (pointer.0 - ratio_x * frame_w as f32).round() as i32;
+            let anchor_y = (pointer.1 - ratio_y * frame_h as f32).round() as i32;
+            // The content lands inset inside the anchored frame (the
+            // tree's own truth is the content — the band draws around
+            // it, exactly the Phase 52 regime).
+            let content_x = anchor_x + i32::try_from(insets.left).unwrap_or(0);
+            let content_y = anchor_y + i32::try_from(insets.top).unwrap_or(0);
+            // The machine releases the states; the restore point and
+            // its size consumed (a fresh engagement re-captures).
+            if let Some(e) = self.toplevels.entry_mut(client, object) {
+                e.machine.unmaximize();
+                e.machine.unfullscreen();
+                e.machine.set_resizing(false);
+                e.restore = None;
+                e.restore_size = None;
+                e.drag_pos = None;
+            }
+            // The detach: the window jumps to the anchored position
+            // *now* (server truth — the geometry-stated fill leaves
+            // with it).
+            self.scene
+                .tree
+                .set_position_now(surface, content_x, content_y)
+                .ok();
+            self.scene.dirty = true;
+            self.sync_states_visibility(surface);
+            Some((
+                content_x,
+                content_y,
+                u32::try_from(phys_w).unwrap_or(1),
+                u32::try_from(phys_h).unwrap_or(1),
+                (rw, rh),
+            ))
+        } else {
+            None
+        };
+        // The grip itself: the geometry truths the pump derives from.
+        let (window_start, last_size) = if let Some((cx, cy, pw, ph, (rw, rh))) = demotion {
+            // The demoted drag anchors on the restore size's rect (the
+            // buffer is still the old, big one — the client commits
+            // the restore size at its cadence; the position follows
+            // the anchor either way).
+            (ldp_core::geometry::Rect::new(cx, cy, pw, ph), (rw, rh))
+        } else {
+            let lw = crate::shell::unscale_axis(rect.w as i32, policy.scale).max(1);
+            let lh = crate::shell::unscale_axis(rect.h as i32, policy.scale).max(1);
+            (
+                rect,
+                (
+                    u32::try_from(lw).unwrap_or(1),
+                    u32::try_from(lh).unwrap_or(1),
+                ),
+            )
+        };
+        if matches!(mode, crate::shell::DragMode::Resize(_)) {
+            if let Some(e) = self.toplevels.entry_mut(client, object) {
+                e.machine.set_resizing(true);
+            }
+        }
+        let drag = crate::shell::LiveDrag {
+            client,
+            object,
+            surface,
+            mode,
+            pointer_start: pointer,
+            window_start,
+            last_size,
+            proposed: false,
+        };
+        self.begin_drag(drag);
+        // The demotion's proposal: the floating size the verbs
+        // displaced, offered through the same two-phase commit (the
+        // client acks, its commit realizes the size — the drag moves
+        // the position meanwhile, the anchor holds).
+        demotion.and_then(|(_, _, _, _, (rw, rh))| {
+            self.toplevels
+                .entry_mut(client, object)
+                .map(|e| e.machine.propose_sized(&policy, (rw, rh)))
+        })
+    }
+
     /// End any chrome grip the dying *surface* held (Phase 52 — the
     /// drawn chrome's death sweep): a destroyed window's band holds
     /// no press, and its close affordance can never fire again (the
@@ -660,6 +854,47 @@ impl World {
         ))
     }
 
+    /// The caption grip's conversion (Phase 53): the drawn band's held
+    /// press becomes the move drag at the pointer's first motion — the
+    /// demotion a geometry-stated window dragged out by its caption
+    /// serves and the [`crate::shell::LiveDrag`] mint ride the one
+    /// machinery the dispatcher's `start_move` arm owns
+    /// ([`Self::mint_pointer_drag`]); the demotion's configure proposal
+    /// parks in the outbox (the wake contract's own vehicle). The
+    /// close affordance's own grip never converts (the drag-away cancel
+    /// is its doctrine — a click that left the button never happened,
+    /// and it never becomes a move either), a press batch never
+    /// converts (the press arms; a click without motion never drags —
+    /// the Phase 52 doctrine holds), and one hand guards the mint (a
+    /// live drag — client-minted or caption-minted — is never
+    /// superseded by the conversion).
+    fn caption_drag_conversion(&mut self, pressed: bool, motioned: bool) {
+        if !motioned || pressed {
+            return;
+        }
+        let Some(grip) = self.input.chrome_grip else {
+            return;
+        };
+        if grip.close || self.drags.live().is_some() {
+            return;
+        }
+        if let Some(proposal) = self.mint_pointer_drag(
+            grip.client,
+            grip.object,
+            grip.surface,
+            crate::shell::DragMode::Move,
+        ) {
+            if let Some(client_id) = ClientId::new(grip.client) {
+                self.outboxes.push(OutboxEntry::event(
+                    client_id,
+                    ObjectId::from_wire(grip.object),
+                    "configure",
+                    crate::shell::toplevel_configure_values(&proposal),
+                ));
+            }
+        }
+    }
+
     /// Route one normalized batch: the scene view, the router, the
     /// click-to-focus policy, the delivery.
     fn route_one(&mut self, class: DeviceClass, events: &[InputEvent]) -> usize {
@@ -684,6 +919,16 @@ impl World {
                 self.retarget_keyboard_focus(hit);
             }
         }
+        // Phase 53 — the caption grip: the band's held press converts
+        // at the pointer's first motion (see `caption_drag_conversion`)
+        // — *before* the router feeds the batch, so the mint's anchor
+        // is the press point itself (the window tracks the hand
+        // rigidly from the grip, the way every desktop's caption
+        // serves).
+        let motioned = events
+            .iter()
+            .any(|e| matches!(e, InputEvent::PointerMotion { .. }));
+        self.caption_drag_conversion(arms.pressed, motioned);
         // The routing view of the scene.
         let (surfaces, bindings, focus, bounds) = self.route_scene();
         let scene = RouteScene {
@@ -734,10 +979,7 @@ impl World {
         // proposes when the clamped size changed (the client's
         // ack+commit realizes it — the two-phase contract, never
         // tearing).
-        if events
-            .iter()
-            .any(|e| matches!(e, InputEvent::PointerMotion { .. }))
-        {
+        if motioned {
             if let Some(entry) = self.advance_drag() {
                 self.outboxes.push(entry);
             }
@@ -844,22 +1086,25 @@ impl World {
     /// The pointer's chrome hit (Phase 52 — the drawn chrome): the
     /// topmost SSD window whose *band ring* — the frame around the
     /// content, the drawn chrome's own territory — contains the
-    /// pointer. A content claim routes first (the pointer's own hit
-    /// test: a window's ink owns its presses, the band claims only
-    /// what no content does — and the topmost walk keeps a higher
-    /// window's band above a lower window's ink). The same gating the
-    /// routing view serves: hidden windows take no chrome (their band
-    /// left the canvas with their ink), a modal-gated tree's chrome
-    /// is equally gated (the dialog owns the desktop). `None` when
-    /// the pointer is over content, over nothing, or over a band that
-    /// draws no close meaning (CSD, roleless, fullscreen-covered —
-    /// [`crate::shell::chrome_geometry`]'s one truth).
+    /// pointer. The walk is topmost-first and stops at the first
+    /// claim either way: a window's own content stops it (its ink is
+    /// the topmost ink — the press is the router's to deliver, the
+    /// chrome never steals what a window's content owns, and a
+    /// click-through content hole falls past by the input region's
+    /// own truth), and a higher window's band claims above a lower
+    /// window's ink — the drawn band is *visible* ink over whatever
+    /// it covers, and a press on the visible band belongs to the
+    /// band's window, never to the content hidden beneath it (the
+    /// z-true doctrine Phase 56's placement made live: a parked
+    /// window's band sits over the stack below it). The same gating
+    /// the routing view serves: hidden windows take no chrome (their
+    /// band left the canvas with their ink), a modal-gated tree's
+    /// chrome is equally gated (the dialog owns the desktop). `None`
+    /// when the pointer is over content, over nothing, or over a band
+    /// that draws no close meaning (CSD, roleless,
+    /// fullscreen-covered — [`crate::shell::chrome_geometry`]'s one
+    /// truth).
     fn chrome_hit(&mut self) -> Option<ChromeHit> {
-        // The content claim: whatever the router would route, the
-        // chrome never steals (the press a window's own ink owns).
-        if self.pointer_hit().is_some() {
-            return None;
-        }
         let pos = self.input.router.pointer_position();
         let point = ldp_core::geometry::Point::new(pos.x as i32, pos.y as i32);
         let snap = self.scene.snapshot();
@@ -871,12 +1116,13 @@ impl World {
             if !node.mapped || self.scene.hidden.contains(id) || gated.contains(id) {
                 continue;
             }
-            // The ring: inside the frame, outside the content (a
-            // click-through content hole falls past this window too —
-            // the input region's own truth, never overridden by the
-            // chrome).
+            // The topmost claim: this window's own content bounds
+            // stop the walk (its ink is the topmost ink at the
+            // point — the router delivers; a click-through hole
+            // falls past by the input region's own truth, never
+            // overridden by the chrome).
             if node.bounds.contains_point(point) {
-                continue;
+                return None;
             }
             let Some((frame, _insets)) =
                 crate::shell::chrome_geometry(&self.toplevels, *id, node.bounds)

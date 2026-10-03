@@ -384,17 +384,68 @@ system talks to; `ldp-client` (Phase 5) is a zero-dependency-safe library
   shrink realizing at the client's cadence. The input pump owns the
   drag's heartbeat (§14's own seam — the input pump advances it); the
   deaths sweep the grip.
-* **Decorations** (the SSD pass served as of Phase 52): server-side by
+* **Decorations** (the SSD pass served as of Phase 52; the caption
+  drag as of Phase 53; the title glyph as of Phase 54; the Liquid
+  dressing as of Phase 55; the chrome-aware placement as of
+  Phase 56; the chrome ghost as of Phase 57): server-side by
   default — and now *drawn*, matching the macOS-inspired visual identity
   of LionOS. The configure insets were always the reservation; the chrome
   pass paints what they reserve: the title bar (28 logical px), the
   border ring (1), and the close affordance (a warm capsule carrying a
   white ×) — CPU ink on the dock's own model (no framebuffer, the honest
   `NoFb` demotion: a visible band pins the frame to the composite arm),
-  cached per frame *shape* (stateless ink — geometry is its only input).
+  cached per frame *shape* (stateless ink — geometry and the material
+  variant are its only inputs).
+  The band carries its *text* since Phase 54: the window's title drawn
+  by Lion Sans (`ldp-font`, the compositor's own zero-dependency
+  typeface — an analytic-coverage rasterizer, exact per-pixel area
+  integration, deterministic byte-for-byte), the strip riding its own
+  layer above the band and below the content, cached by its stateless
+  inputs (title, pixel size, budget — same inputs, same bytes), and
+  truncated pixel-true with the ellipsis glyph when the title exceeds
+  the band's budget (the frame minus the close affordance's territory —
+  the ink never reaches the button). A `set_title` on a serving window
+  dirties the scene — a changed title is changed chrome, the repaint
+  the server's (the set_material doctrine, verbatim).
+  The band wears the *glass* since Phase 55: the chrome layer carries
+  the **chrome material** — the dock's own (`Material::Chrome`, one
+  truth for all system chrome) — so the Sheet frost pane sits beneath
+  the ink (the backdrop sampled from the composed canvas, blurred,
+  desaturated, veiled: the band genuinely reads its underlay — a red
+  window warms it, a blue one cools it, an underlay's commit flows
+  through the glass), the chrome hairline traces the frame's top edge,
+  and the corners round like every glass pane. The band's own ink
+  drops to a light veil (the readability floor: the tint anchors the
+  lightness over any backdrop, the dark title ink keeps its contrast)
+  while the ring, the capsule, and the glyph keep their opaque words.
+  The pane's truths: the frost covers the whole frame — the content
+  hole included, the client's content riding above it (the glass pane
+  is the window's own background, the NSVisualEffectView doctrine) —
+  and an underlay never direct-scanouts under a serving band (the
+  dock's own scanout subtraction, the plane solver's split at
+  `needs_backdrop`: the frost's samples must be in the canvas).
+  `Minimal` resolves the material plain and paints the flat bar —
+  every Phase 52-54 byte stands at that tier (the quality budget's
+  honest degradation, never a lie).
   One geometry answer — the *applied* configure's insets grown around
-  the content — feeds the render layer, the damage ledger, and the
-  input pump's ring hit test. The close affordance's release asks the
+  the content — feeds the render layer, the damage ledger, the input
+  pump's ring hit test, and (since Phase 56) the *placement* itself:
+  every placement arm answers in frame space. `place_root`'s chrome
+  arm parks the *frame* at the policy slot (the content rides at the
+  slot plus the insets — a parked window's band lands from row 0 of
+  the display, never above the visible area), resolving the slot in
+  logical space and clamping the *physical* frame pixel-true against
+  the physical usable area with the machine's own inset formula (a
+  fractional factor's rounding can never shave the band's top edge);
+  `replace_root` re-places the frame on the *applied* insets at
+  migration (a fullscreen window's zero insets migrate as plain
+  geometry; plain and client-decorated windows keep the pre-Phase-56
+  answers exactly). The ring hit test itself is z-true: the walk is
+  topmost-first, stopping at the first claim either way — a higher
+  window's band claims above a lower window's ink (the press follows
+  the visible ink, never the content hidden beneath it), a window's
+  own content stops the walk (the router delivers; a click-through
+  hole falls past by the input region's own truth). The close affordance's release asks the
   client to close (`toplevel.close`, the frozen event's first sender):
   the press arms consumed (the client never learns a press on pixels it
   does not own; the band's press focuses its own window), the release
@@ -402,7 +453,27 @@ system talks to; `ldp-client` (Phase 5) is a zero-dependency-safe library
   doctrine every desktop serves; the client destroys the toplevel "when
   ready" (the server never force-kills). A maximized SSD window's frame
   fills the workspace area (the content inset by the applied chrome —
-  every Phase 49 CSD pin unchanged). Clients may opt for client-side
+  every Phase 49 CSD pin unchanged). The band itself is a *move grip*
+  (Phase 53): a held press converts at the pointer's first motion into
+  the server-minted move drag — the same machinery `start_move` owns,
+  the anchor the press point, the demotion measured over the drawn
+  frame so the hand keeps its caption through a maximized window's
+  restore. And the band leaves with the window it dressed (Phase 57):
+  the close fade's ghost carries the chrome — the capture freezes the
+  frame, the raster's shape key, and the strip at death exactly as the
+  client style froze, the ghost's render pushing the band, the strip,
+  and the content at its own z slot at the one close-spring opacity
+  (the whole frame leaves as one — DWM's genie and WindowServer's zoom
+  carry the title bar with the content; so does the ghost), reading
+  the same chrome cache the living desktop reads (stateless ink —
+  same shape, same bytes) and dressing by the live band's own rule
+  (the chrome material at a Liquid tier: a fading glass pane still
+  reading the composed canvas). The damage claims and the settle's
+  vacates grow the frame; the Liquid tier's scanout reservation
+  outlives the window and leaves with the ghost. Plain,
+  client-decorated, and transitions-off destroys keep every
+  pre-Phase-57 byte (the content-only ghost; the band leaving with
+  the route — the tier's honest behavior). Clients may opt for client-side
   decorations at creation; the shell then applies the LionOS decoration
   *metrics* (shadow margins, hit zones) so CSD apps still land on the
   system grid — and the server draws nothing for them (their buffer's
@@ -850,7 +921,16 @@ last ink stays on the canvas while the hardware planes re-assign around
 the hole. The settled desktop is the plain post-destroy bytes (the A/B
 byte oracle); the same eligibility rules as the open hold (popups
 dismiss instantly, ephemeral roles leave no ghost, the library default
-is off).
+is off). Phase 57 grows the ghost by its window's chrome: a
+server-decorated window's capture also freezes the band's shape truth
+(the frame, the raster cache's shape key, the strip), and the ghost's
+render pushes the band, the strip, and the content as one family at the
+one close-spring opacity — the band's ink is stateless (the shape is
+the raster's whole truth), so the ghost borrows the desktop's own
+chrome cache instead of owning a copy, the claims and the vacates grow
+the frame, and a Liquid tier's frost keeps sampling the composed canvas
+until the settle (a fading glass pane). Plain, client-decorated, and
+transitions-off windows keep the pre-Phase-57 ghost byte-exact.
 
 The library default is **off** (`--transitions` opts the choreography in)
 — the byte-exactness doctrine; popups and surfaces claiming ephemeral
@@ -1221,14 +1301,28 @@ by VRR. The policy engine is pure, deterministic, and table-driven over
 * **The operator's hand (Phase 50):** the input pump is the interactive
   drag's heartbeat. `toplevel.start_move`/`start_resize` (§8) mint the
   grip under the seat's freshness serial; every motion batch that
-  follows advances it — the move's geometry applies at the pump's
+  follows advances it — the caption's conversion rides the same door
+  (Phase 53: one machinery, two doors), and `toplevel.set_title` (the
+  hints arm, Phase 54) dirties the scene before the router returns:
+  the title's ink is the server's, so its change is the server's own
+  wake — and the *underlay* has a wake of its own since Phase 55: a
+  commit beneath a Liquid-dressed band claims through the glass (the
+  frost samples the composed canvas, so the underlay's fresh pixels
+  and the band's pane repaint in the same frame) —
+  the move's geometry applies at the pump's
   cadence (server truth, `set_position_now`, the R2 damage rule
   repainting both ends), the resize's edge-algebra target proposes
   when the clamped size changed (§10.4's drag row carries the
   delivery cadence, §8's grace window the acknowledgment cadence; the
   drawn chrome's grip rides the same pump — the band's press consumed
   before the router ever sees it, its release firing the frozen
-  `toplevel.close`, §8's SSD pass) —
+  `toplevel.close`, §8's SSD pass; and since Phase 53 the band's own
+  held press converts at the pointer's first motion into the
+  server-minted move drag, the same `mint_pointer_drag` door the
+  dispatcher's arm owns — the caption grip's conversion runs *before*
+  the router feeds the batch, so the mint's anchor is the press point
+  and the window tracks the hand rigidly from the grip, exactly the
+  way every desktop's caption serves) —
   and the button's release retires the grip (the resize's final
   proposal, the move's silence). The pump reads the router's own
   freshest position — the same position state the routed motion

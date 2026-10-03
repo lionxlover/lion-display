@@ -215,6 +215,10 @@ pub struct Scene {
     /// only protocol damage, the band is the compositor's own ink
     /// around it).
     pub chrome_prev: HashMap<SurfaceId, Rect>,
+    /// Phase 54 — the title ledger: the last-claimed strip rect and
+    /// title per serving window (the ink-change claims — a title the
+    /// band's own rect never sees).
+    pub title_prev: HashMap<SurfaceId, (Rect, Box<str>)>,
 }
 
 impl Scene {
@@ -245,6 +249,7 @@ impl Scene {
             hidden: std::collections::HashSet::new(),
             hide_claims: Vec::new(),
             chrome_prev: HashMap::new(),
+            title_prev: HashMap::new(),
             dirty: false,
             pending_releases: Vec::new(),
             flips: HashMap::new(),
@@ -742,6 +747,14 @@ impl TransitionHost {
 /// is *removed* at the advance that settled it: the frame after the
 /// fade is the plain post-removal desktop, byte-identical with the
 /// never-animated one.
+///
+/// Phase 57 — the chrome ghost: a server-decorated window's band
+/// rides the fade. The content's ink is owned (the client's pool is
+/// the client's); the chrome's is not copied at all — the band's ink
+/// is *stateless* (the shape is the raster's whole truth), so the
+/// ghost carries the frozen shape and the render path reads the same
+/// chrome cache the living desktop reads. The whole frame — band,
+/// strip, content — leaves as one, at the one close-spring opacity.
 #[derive(Debug)]
 pub struct Ghost {
     /// The ghost's identity (the buffer-view key — unique per ghost,
@@ -768,8 +781,33 @@ pub struct Ghost {
     /// fidelity: it is inserted at this index in the layer stack,
     /// clamped to the stack the fade walks).
     pub z: usize,
+    /// The dying window's frozen chrome (Phase 57): `Some` exactly
+    /// when the window wore the server-drawn band at death — the
+    /// frame's shape truth, frozen the same breath the style froze.
+    pub chrome: Option<GhostChrome>,
     /// The close fade itself.
     pub transition: Transition,
+}
+
+/// One ghost's chrome payload (Phase 57): everything the render path
+/// needs to draw the dying window's band exactly as the last frame
+/// drew it. The ink is the chrome pass's own cache (the shape and the
+/// strip key are the ink's *whole* stateless truth — same shape, same
+/// bytes), so the ghost borrows the desktop's rasters instead of
+/// owning copies: the band, the strip, and the content fade at the
+/// one opacity, in the one z slot, reading the one cache.
+#[derive(Debug)]
+pub struct GhostChrome {
+    /// The frame rect the chrome wore (content + insets, world
+    /// coordinates — the band's place on the desktop).
+    pub frame: Rect,
+    /// The raster's shape key (the insets, the scaled close metrics,
+    /// the Liquid variant — the ink's stateless inputs, frozen at
+    /// death exactly as the client style froze).
+    pub shape: crate::shell::ChromeShape,
+    /// The title strip's key and rect, if a title served at death
+    /// (the strip's ink rides the same cache's truth).
+    pub strip: Option<(crate::shell::StripKey, Rect)>,
 }
 
 /// The ghost host: every live close fade (Phase 48).
@@ -824,8 +862,10 @@ impl GhostHost {
     /// settled ones and recording their rectangles in
     /// [`GhostHost::vacated`] — the removal claims the damage pass
     /// drains (the settle frame repaints the ghost's last ink off the
-    /// canvas). Returns whether **any ghost was live before the
-    /// advance** — the pump's repaint claim.
+    /// canvas). Phase 57: a ghost that carried chrome vacates the
+    /// *frame* — the band's region is the ghost's own to clear, no
+    /// client economy repaints it. Returns whether **any ghost was
+    /// live before the advance** — the pump's repaint claim.
     pub fn advance(&mut self, now_ms: u64) -> bool {
         let had_live = !self.ghosts.is_empty();
         let mut vacated = Vec::new();
@@ -835,6 +875,9 @@ impl GhostHost {
                 vacated.push(g.dest);
                 if !g.style.is_plain() {
                     vacated.push(g.style.effect_rect(g.dest));
+                }
+                if let Some(chrome) = g.chrome.as_ref() {
+                    vacated.push(chrome.frame);
                 }
                 false
             } else {
@@ -1651,6 +1694,12 @@ impl World {
     /// own (the macOS snapshot doctrine — the fade rides a copy, the
     /// client is already gone).
     ///
+    /// Phase 57: a server-decorated window's capture also freezes its
+    /// chrome's shape truth (the frame, the raster's shape key, the
+    /// strip) — the band's ink is stateless and rides the desktop's
+    /// own cache, so the whole frame leaves as one ghost. A window
+    /// that wore no chrome ghosts content-only, exactly as before.
+    ///
     /// # Panics
     ///
     /// Never: the tight geometry is a row-tight copy of a geometry
@@ -1745,6 +1794,38 @@ impl World {
             false,
             self.scene.material_requests.get(&surface).copied(),
         );
+        // Phase 57 — the chrome ghost's capture: a server-decorated
+        // window's band rides the close fade. The chrome's truth is
+        // frozen at death exactly as the style froze: the frame the
+        // band wore, the shape the raster cache keys on (the insets,
+        // the scaled close metrics, the Liquid variant), and the
+        // strip if a title served. The ink itself is never copied —
+        // the band's ink is stateless (the shape is its whole
+        // truth), so the ghost renders from the same chrome cache
+        // the living desktop reads; the capture only needs the keys.
+        // `None` (plain, CSD, roleless, never-applied, fullscreen's
+        // zero insets) leaves the ghost content-only — every
+        // pre-Phase-57 byte stands.
+        let chrome = {
+            let scale = self
+                .outputs
+                .first()
+                .map_or(ScaleFactor::IDENTITY, |slot| slot.output.scale);
+            crate::shell::chrome_geometry(&self.toplevels, surface, dest).map(|(frame, insets)| {
+                let liquid = self.effects != ldp_renderer::EffectTier::Minimal;
+                GhostChrome {
+                    strip: crate::shell::title_strip(
+                        &self.toplevels,
+                        surface,
+                        frame,
+                        insets,
+                        scale,
+                    ),
+                    frame,
+                    shape: crate::shell::ChromeShape::of(frame, insets, scale, liquid),
+                }
+            })
+        };
         // The owned ink: a row-tight copy of the window's last
         // raster (the SHM family is 32-bit; the tight geometry is
         // the copy's own, validated against the copy's own size).
@@ -1789,6 +1870,7 @@ impl World {
             hdr,
             style,
             z,
+            chrome,
             transition: Transition::close(TransitionKind::WindowClose, now_ms),
         });
         self.scene.dirty = true;

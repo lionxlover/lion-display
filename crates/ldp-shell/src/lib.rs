@@ -51,8 +51,8 @@ pub mod toplevel;
 
 pub use dialog::{Dialog, DialogModality, DialogState};
 pub use layout::{
-    clamp_into, dock_rect, place, usable_area, DeviceClass, DockConfig, Edge, Layout,
-    PlacementPolicy, CASCADE_STEP,
+    clamp_chrome, clamp_into, dock_rect, place, place_chrome, usable_area, DeviceClass, DockConfig,
+    Edge, Layout, PlacementPolicy, CASCADE_STEP,
 };
 pub use popup::{Anchor, Gravity, Placement, Popup, PopupConstraints, PopupError, PopupGeometry};
 pub use serial::SerialClock;

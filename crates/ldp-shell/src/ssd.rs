@@ -400,3 +400,65 @@ mod tests {
         assert!(bounded_string(&exact).is_ok());
     }
 }
+
+/// The drawn title's font size (logical px, 1× baseline — Phase 54's
+/// title glyph: the band's own text, scaled per output like every
+/// piece of chrome).
+pub const TITLE_PX: u32 = 16;
+
+/// The title run's left margin from the frame's left edge (logical
+/// px) — the breathing room before the first glyph.
+pub const TITLE_SIDE: u32 = 12;
+
+/// The drawn title's one placement truth (Phase 54): the font's
+/// pixel size, the run's left origin, the baseline's row in the
+/// band, and the width budget the pixel-true truncation serves —
+/// every number the strip's paint, the render walk, and the claims
+/// ledger need, derived once from the applied insets and the scale.
+///
+/// The vertical arithmetic centers the cap-to-descent body in the
+/// band (the title-bar doctrine: optical centering on the letters
+/// that are actually there, not the line box). The budget reserves
+/// the close affordance's own territory — the glyphs never reach
+/// the button.
+#[must_use]
+pub fn title_spec(
+    frame_w: u32,
+    band: Insets,
+    scale: ScaleFactor,
+    face: &ldp_font::Face,
+) -> TitleSpec {
+    let top = scale.scale_px_up(band.top);
+    let px = scale.scale_px_up(TITLE_PX);
+    let close = scale.scale_px_up(CLOSE_SIZE);
+    let margin = scale.scale_px_up(CLOSE_MARGIN);
+    let side = scale.scale_px_up(TITLE_SIDE);
+    let metrics = face.metrics(px);
+    // The cap-to-descent body, centered: the baseline lands
+    // `(top − body) / 2 + cap` rows into the band.
+    let body = (metrics.cap + metrics.descent.abs()) as u32;
+    let baseline = top.saturating_sub(body) / 2 + metrics.cap.unsigned_abs();
+    let avail = frame_w
+        .saturating_sub(side)
+        .saturating_sub(margin.saturating_mul(2).saturating_add(close));
+    TitleSpec {
+        px,
+        x: side,
+        baseline,
+        avail,
+    }
+}
+
+/// The title strip's placement answer (Phase 54): all the numbers
+/// [`title_spec`] derives, in device pixels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TitleSpec {
+    /// The font size (device px).
+    pub px: u32,
+    /// The run's left origin from the frame's left edge.
+    pub x: u32,
+    /// The baseline's row, from the band's top.
+    pub baseline: u32,
+    /// The width budget for the run (the truncation's `max_w`).
+    pub avail: u32,
+}

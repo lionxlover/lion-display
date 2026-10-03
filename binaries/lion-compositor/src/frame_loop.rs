@@ -312,10 +312,18 @@ impl World {
         // moves every pixel under it (the vacate doctrine again), and
         // a styled ghost's frozen chrome rides along (a fading shadow
         // is still a shadow — the claim matches the client walk's).
+        // Phase 57: a ghost that carries chrome claims the *frame* —
+        // the fading band moves every pixel under it too (the frame
+        // contains the content; the strip lives inside the band's
+        // rect, so the one frame claim covers the whole dying
+        // window's ink).
         for ghost in &self.scene.ghosts.ghosts {
             repaint.add(ghost.dest);
             if !ghost.style.is_plain() {
                 repaint.add(ghost.style.effect_rect(ghost.dest));
+            }
+            if let Some(chrome) = ghost.chrome.as_ref() {
+                repaint.add(chrome.frame);
             }
         }
         // The vacated rects — the ghosts the last advance settled: a
@@ -376,6 +384,90 @@ impl World {
                 }
             }
             self.scene.chrome_prev = live;
+            // Phase 55 — the Liquid dressing's scanout reservation:
+            // a serving band's frost pane samples the *composed
+            // canvas*, so a client layer beneath it can never
+            // direct-scanout while the band shows over that area —
+            // the dock's own subtraction, the chrome's sibling (the
+            // solver's split already forces the composite; this keeps
+            // the candidacy's own bookkeeping honest). `Minimal`
+            // never dresses — the flat band's pane is the ink itself,
+            // and every pre-Phase-55 byte stands.
+            //
+            // Phase 57 — the reservation outlives the window: a
+            // *fading* band's pane still samples the composed canvas
+            // (the ghost's frozen shape carries the `liquid` bit), so
+            // the ghost's frame stays subtracted for exactly as long
+            // as the ghost stays live. The settle frame's vacate
+            // claims repaint the region plain, and the reservation
+            // leaves with the ghost — the ledger and the host agree.
+            if self.effects != ldp_renderer::EffectTier::Minimal {
+                for frame in self.scene.chrome_prev.values() {
+                    damage.scanout = std::mem::take(&mut damage.scanout).subtract_rect(*frame);
+                }
+                for ghost in &self.scene.ghosts.ghosts {
+                    if let Some(chrome) = ghost.chrome.as_ref() {
+                        if chrome.shape.liquid {
+                            damage.scanout =
+                                std::mem::take(&mut damage.scanout).subtract_rect(chrome.frame);
+                        }
+                    }
+                }
+            }
+        }
+        // Phase 54 — the title glyph's own claims: the band's rect can
+        // stand perfectly still while its ink changes (the string
+        // replaced, the truncation re-solved under a resize) — the
+        // strip's rect claims both ends, the only claim the protocol
+        // damage engine cannot see. The hide/die cases ride the band's
+        // own claims (the strip lives inside the band's rect); the
+        // unchanged case claims nothing — full-stack re-composites
+        // cover the strip wherever anything else claims.
+        {
+            let chrome_scale = self
+                .outputs
+                .first()
+                .map_or(ldp_core::scale::ScaleFactor::IDENTITY, |slot| {
+                    slot.output.scale
+                });
+            let mut live: HashMap<SurfaceId, (Rect, Box<str>)> = HashMap::new();
+            for id in snapshot.render_order() {
+                let Some(node) = snapshot.node(*id) else {
+                    continue;
+                };
+                if !node.mapped || self.scene.hidden.contains(id) {
+                    continue;
+                }
+                if let Some((frame, insets)) =
+                    crate::shell::chrome_geometry(&self.toplevels, *id, node.bounds)
+                {
+                    if let Some((skey, srect)) =
+                        crate::shell::title_strip(&self.toplevels, *id, frame, insets, chrome_scale)
+                    {
+                        live.insert(*id, (srect, skey.title));
+                    }
+                }
+            }
+            let prev = std::mem::take(&mut self.scene.title_prev);
+            for (id, (old_rect, old_title)) in &prev {
+                match live.get(id) {
+                    Some((cur_rect, cur_title))
+                        if cur_rect == old_rect && cur_title == old_title => {}
+                    Some((cur_rect, _)) => {
+                        repaint.add(*old_rect);
+                        repaint.add(*cur_rect);
+                    }
+                    // The strip leaving (title emptied, window hid or
+                    // died): the band's claims own the repaint.
+                    None => {}
+                }
+            }
+            for (id, (cur_rect, _)) in &live {
+                if !prev.contains_key(id) {
+                    repaint.add(*cur_rect);
+                }
+            }
+            self.scene.title_prev = live;
         }
         // The HDR fold (Phase 31): the stack summary over the desktop
         // (every mapped surface's color description and HDR metadata)
@@ -533,7 +625,8 @@ impl World {
         // Phase 52: the surfaces the walk has pushed layers for — the
         // ghost insert's own z semantic (a ghost's z counts *surfaces*,
         // not layers; the chrome pass can push two layers under one
-        // window, so the insert test rides this counter, staying
+        // window, and since Phase 57 a ghost can push its own chrome
+        // family too, so the insert test rides this counter, staying
         // byte-identical to `facts.len()` whenever no chrome serves).
         let mut walked = 0usize;
         for id in snapshot.render_order() {
@@ -588,10 +681,19 @@ impl World {
             // The ghosts whose slot this layer takes (the fade's z
             // fidelity: the ghost lands exactly where its window
             // stood, before the layer that now occupies the index).
+            // Phase 57: the ghost's own layers carry their chrome —
+            // a dying SSD window pushes band, strip, and content at
+            // its slot, exactly the layer family its live self wore.
             while gi < ghosts.len() && ghosts[gi].z <= walked {
-                let (f, l) = ghost_layer(ghosts[gi], layout, ctx.negotiated);
-                facts.push(f);
-                stack.push(l);
+                push_ghost(
+                    ghosts[gi],
+                    ctx.chrome,
+                    ctx.effects,
+                    layout,
+                    ctx.negotiated,
+                    &mut facts,
+                    &mut stack,
+                );
                 gi += 1;
             }
             walked += 1;
@@ -604,16 +706,33 @@ impl World {
             // ledger's subtraction the dock serves). The raster is
             // the prepare's (the render slot's mutable half, before
             // this walk); the shape is [`chrome_geometry`]'s one
-            // truth. Plain styling: the band's own ink is the look,
-            // the Liquid chrome-material dressing is a follow-on
-            // line. Client-decorated, roleless, and
-            // fullscreen-covered windows draw nothing here.
+            // truth. Phase 55 — the Liquid dressing: at a Liquid tier
+            // the band's layer wears the **chrome material** (the
+            // dock's own — one truth for all system chrome): the
+            // frost pane beneath the ink (the backdrop sampled from
+            // the composed canvas, so the band reads its underlay —
+            // the glass doctrine), the chrome hairline over the
+            // frame's top edge, and the corners rounded like every
+            // glass pane; the ink itself paints the Liquid veil so
+            // the frost reads through. A bandless shape (fullscreen's
+            // `NONE` insets, a bare ring) never dresses — its pane
+            // would frost pixels no ink covers. `Minimal` resolves
+            // the material plain and paints the flat bar: every
+            // Phase 52-54 byte stands. Client-decorated, roleless,
+            // and fullscreen-covered windows draw nothing here
+            // either way.
             if let Some((frame, insets)) =
                 crate::shell::chrome_geometry(ctx.toplevels, *id, node.bounds)
             {
-                let shape = crate::shell::ChromeShape::of(frame, insets, ctx.chrome_scale);
+                let liquid = ctx.effects != ldp_renderer::EffectTier::Minimal;
+                let shape = crate::shell::ChromeShape::of(frame, insets, ctx.chrome_scale, liquid);
                 if let Some(raster) = ctx.chrome.raster(shape) {
                     let local_frame = frame.translate(-layout.0, -layout.1);
+                    let style = if shape.liquid && shape.top > 0 {
+                        crate::shell::chrome_style(ctx.effects)
+                    } else {
+                        ldp_renderer::LayerStyle::default()
+                    };
                     facts.push(LayerFacts {
                         dest: local_frame,
                         width: local_frame.w,
@@ -625,23 +744,73 @@ impl World {
                         opacity: 1.0,
                         opaque: Region::new(),
                         fb: None,
-                        needs_backdrop: false,
-                        styled: false,
+                        needs_backdrop: style.backdrop.is_some(),
+                        styled: !style.is_plain(),
                         system: true,
                     });
                     let layer = BufferView::new(raster.key, &raster.ink, raster.geometry.clone())
                         .ok()
                         .map(|view| {
-                            SurfaceLayer::new(
+                            let mut layer = SurfaceLayer::new(
                                 view,
                                 local_frame,
                                 ldp_core::geometry::Transform::Normal,
                                 ldp_core::color::ColorDescription::srgb_sdr(),
                                 1.0,
                                 Region::new(),
-                            )
+                            );
+                            layer.style = style;
+                            layer
                         });
                     stack.push(layer);
+                    // Phase 54 — the title glyph: the strip rides
+                    // *above* the band's own ink, *below* the
+                    // content — the drawn text, CPU coverage tinted
+                    // at the dock's own model, its cache keyed by the
+                    // ink's stateless inputs (the title, the size,
+                    // the budget — same title, same bytes). One truth
+                    // with the claims ledger: both ask
+                    // [`crate::shell::title_strip`].
+                    if let Some((skey, srect)) = crate::shell::title_strip(
+                        ctx.toplevels,
+                        *id,
+                        frame,
+                        insets,
+                        ctx.chrome_scale,
+                    ) {
+                        if let Some(strip) = ctx.chrome.strip(&skey) {
+                            let local_strip = srect.translate(-layout.0, -layout.1);
+                            facts.push(LayerFacts {
+                                dest: local_strip,
+                                width: local_strip.w,
+                                height: local_strip.h,
+                                format: ldp_core::buffer::FourCC::ARGB8888,
+                                modifier: Modifier::LINEAR,
+                                transform: ldp_core::geometry::Transform::Normal,
+                                color: ldp_core::color::ColorDescription::srgb_sdr(),
+                                opacity: 1.0,
+                                opaque: Region::new(),
+                                fb: None,
+                                needs_backdrop: false,
+                                styled: false,
+                                system: true,
+                            });
+                            let layer =
+                                BufferView::new(strip.key, &strip.ink, strip.geometry.clone())
+                                    .ok()
+                                    .map(|view| {
+                                        SurfaceLayer::new(
+                                            view,
+                                            local_strip,
+                                            ldp_core::geometry::Transform::Normal,
+                                            ldp_core::color::ColorDescription::srgb_sdr(),
+                                            1.0,
+                                            Region::new(),
+                                        )
+                                    });
+                            stack.push(layer);
+                        }
+                    }
                 }
             }
             facts.push(crate::plane_session::client_layer_facts(
@@ -671,11 +840,17 @@ impl World {
         // The ghosts the walk never passed (their window was
         // topmost, or the stack shrank past their slot): they render
         // above the remaining windows, below the dock — the chrome
-        // stays the chrome.
+        // stays the chrome, and the band stays with its ghost.
         while gi < ghosts.len() {
-            let (f, l) = ghost_layer(ghosts[gi], layout, ctx.negotiated);
-            facts.push(f);
-            stack.push(l);
+            push_ghost(
+                ghosts[gi],
+                ctx.chrome,
+                ctx.effects,
+                layout,
+                ctx.negotiated,
+                &mut facts,
+                &mut stack,
+            );
             gi += 1;
         }
         // The dock's facts (the desktop's chrome, drawn where it
@@ -769,8 +944,13 @@ impl World {
             .map_or(ldp_core::scale::ScaleFactor::IDENTITY, |slot| {
                 slot.output.scale
             });
-        self.chrome
-            .prepare(&snapshot, &self.scene, &self.toplevels, chrome_scale);
+        self.chrome.prepare(
+            &snapshot,
+            &self.scene,
+            &self.toplevels,
+            chrome_scale,
+            self.effects,
+        );
         // The dock draws where the desktop's chrome shows (Phase 37):
         // the primary owns it in an extended desktop; a mirrored
         // desktop shows it on *every* display — the dock is the
@@ -1648,19 +1828,117 @@ fn ghost_tone_policy(
     }
 }
 
-/// One ghost's fact and layer (Phase 48): the fading window's own
-/// geometry, style, and color — drawn exactly as the last frame drew
-/// them, with the close spring's opacity the only change. The fact is
-/// the dock's own shape (owned ink, no framebuffer — the composite
-/// path only, never a plane offload) and the layer borrows the
-/// ghost's owned ink, exactly the dock's pattern.
-fn ghost_layer(
-    ghost: &crate::scene::Ghost,
+/// One ghost's facts and layers (Phase 48 → 57): the fading window's
+/// own geometry, style, and color — drawn exactly as the last frame
+/// drew them, with the close spring's opacity the only change. The
+/// fact is the dock's own shape (owned ink, no framebuffer — the
+/// composite path only, never a plane offload) and the layer borrows
+/// the ghost's owned ink, exactly the dock's pattern.
+///
+/// Phase 57 — the chrome ghost: when the dying window wore the
+/// server-drawn band, the ghost pushes the band and the title strip
+/// *before* the content — exactly the layer family its live self
+/// pushed, in the same order (band beneath strip beneath content,
+/// all beneath the next window's family) — every layer at the one
+/// close-spring opacity: the whole frame leaves as one. The chrome
+/// inks come from the same cache the living desktop reads (the
+/// frozen shape and strip key are the ink's whole truth); the
+/// dressing follows the live band's own rule (the chrome material at
+/// a Liquid tier, the flat bar at `Minimal`), so a fading band's
+/// frost still reads the composed canvas beneath it — a fading glass
+/// pane. A ghost that carried no chrome pushes content-only, every
+/// Phase 48 byte intact.
+#[allow(clippy::too_many_lines)]
+fn push_ghost<'a>(
+    ghost: &'a crate::scene::Ghost,
+    chrome: &'a crate::shell::ChromePass,
+    effects: ldp_renderer::EffectTier,
     layout: (i32, i32),
     negotiated: Option<u32>,
-) -> (LayerFacts, Option<SurfaceLayer<'_>>) {
-    let local_dest = ghost.dest.translate(-layout.0, -layout.1);
+    facts: &mut Vec<LayerFacts>,
+    stack: &mut Vec<Option<SurfaceLayer<'a>>>,
+) {
     let opacity = ghost.transition.opacity();
+    if let Some(ghc) = ghost.chrome.as_ref() {
+        if let Some(raster) = chrome.raster(ghc.shape) {
+            let local_frame = ghc.frame.translate(-layout.0, -layout.1);
+            let style = if ghc.shape.liquid && ghc.shape.top > 0 {
+                crate::shell::chrome_style(effects)
+            } else {
+                ldp_renderer::LayerStyle::default()
+            };
+            facts.push(LayerFacts {
+                dest: local_frame,
+                width: local_frame.w,
+                height: local_frame.h,
+                format: ldp_core::buffer::FourCC::ARGB8888,
+                modifier: Modifier::LINEAR,
+                transform: ldp_core::geometry::Transform::Normal,
+                color: ldp_core::color::ColorDescription::srgb_sdr(),
+                opacity,
+                // A fading band is never opaque (the demotion
+                // ledger's honest subtraction, the ghost content's
+                // own doctrine).
+                opaque: Region::new(),
+                fb: None,
+                needs_backdrop: style.backdrop.is_some(),
+                styled: !style.is_plain(),
+                system: true,
+            });
+            let layer = BufferView::new(raster.key, &raster.ink, raster.geometry.clone())
+                .ok()
+                .map(|view| {
+                    let mut layer = SurfaceLayer::new(
+                        view,
+                        local_frame,
+                        ldp_core::geometry::Transform::Normal,
+                        ldp_core::color::ColorDescription::srgb_sdr(),
+                        opacity,
+                        Region::new(),
+                    );
+                    layer.style = style;
+                    layer
+                });
+            stack.push(layer);
+            // The title strip: above the band's ink, below the
+            // content — the live family's own order, at the same
+            // fading opacity.
+            if let Some((skey, srect)) = ghc.strip.as_ref() {
+                if let Some(strip) = chrome.strip(skey) {
+                    let local_strip = srect.translate(-layout.0, -layout.1);
+                    facts.push(LayerFacts {
+                        dest: local_strip,
+                        width: local_strip.w,
+                        height: local_strip.h,
+                        format: ldp_core::buffer::FourCC::ARGB8888,
+                        modifier: Modifier::LINEAR,
+                        transform: ldp_core::geometry::Transform::Normal,
+                        color: ldp_core::color::ColorDescription::srgb_sdr(),
+                        opacity,
+                        opaque: Region::new(),
+                        fb: None,
+                        needs_backdrop: false,
+                        styled: false,
+                        system: true,
+                    });
+                    let layer = BufferView::new(strip.key, &strip.ink, strip.geometry.clone())
+                        .ok()
+                        .map(|view| {
+                            SurfaceLayer::new(
+                                view,
+                                local_strip,
+                                ldp_core::geometry::Transform::Normal,
+                                ldp_core::color::ColorDescription::srgb_sdr(),
+                                opacity,
+                                Region::new(),
+                            )
+                        });
+                    stack.push(layer);
+                }
+            }
+        }
+    }
+    let local_dest = ghost.dest.translate(-layout.0, -layout.1);
     let fact = LayerFacts {
         dest: local_dest,
         width: ghost.geometry.width(),
@@ -1697,7 +1975,8 @@ fn ghost_layer(
             layer.tone = ghost_tone_policy(ghost, negotiated);
             layer
         });
-    (fact, layer)
+    facts.push(fact);
+    stack.push(layer);
 }
 
 /// One output's visible words: the display model when the frame loop
