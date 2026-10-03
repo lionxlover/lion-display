@@ -70,6 +70,14 @@ pub struct SsdMetrics {
     pub hit_zone: u32,
 }
 
+/// The drawn close affordance's size (logical px, 1× baseline —
+/// Phase 52's SSD pass scales it per output).
+pub const CLOSE_SIZE: u32 = 20;
+
+/// The drawn close affordance's inset from the frame's right edge
+/// and the title band's top (logical px).
+pub const CLOSE_MARGIN: u32 = 5;
+
 impl SsdMetrics {
     /// The default LionOS chrome metrics (logical px, 1× baseline).
     pub const LION: SsdMetrics = SsdMetrics {
@@ -126,6 +134,25 @@ impl SsdMetrics {
             right: m,
             bottom: m,
         }
+    }
+
+    /// The drawn close affordance's rectangle (Phase 52 — the SSD
+    /// pass): frame coordinates, scaled to `scale`. The button rides
+    /// the title band's right end — the operator's farewell grip, the
+    /// one piece of chrome whose release *means* something: it asks
+    /// the client to close (`toplevel.close`, the frozen event's
+    /// first sender). The title band owns its vertical placement (a
+    /// `CLOSE_SIZE + 2 * CLOSE_MARGIN` band holds it with a logical
+    /// pixel to spare at the Lion metrics); the ring test gates any
+    /// claim — the rectangle alone never extends the chrome's
+    /// territory. Degenerate frames (thinner than the button)
+    /// saturate at the frame's left edge, never outside the band.
+    #[must_use]
+    pub fn close_button(self, frame: Rect, scale: ScaleFactor) -> Rect {
+        let size = scale.scale_px_up(CLOSE_SIZE);
+        let margin = scale.scale_px_up(CLOSE_MARGIN);
+        let x = frame.w.saturating_sub(margin.saturating_add(size));
+        Rect::new(frame.x + x as i32, frame.y + margin as i32, size, size)
     }
 }
 
@@ -312,6 +339,55 @@ mod tests {
         // Hit zone dominating.
         let m2 = SsdMetrics { hit_zone: 12, ..m };
         assert_eq!(m2.frame_margin(sf(1.0)).top, 12);
+    }
+
+    #[test]
+    fn close_button_rides_the_title_bands_right_end() {
+        let m = SsdMetrics::LION;
+        let frame = Rect::new(100, 200, 400, 300);
+        // 1×: 20×20, 5 in from the frame's right and top.
+        let b = m.close_button(frame, sf(1.0));
+        assert_eq!(b, Rect::new(100 + 400 - 25, 205, 20, 20));
+        // 2×: 40×40, 10 in.
+        let b2 = m.close_button(frame, sf(2.0));
+        assert_eq!(b2, Rect::new(100 + 400 - 50, 210, 40, 40));
+        // 1.25×: size ceil(25) = 25, margin ceil(6.25) = 7.
+        let b125 = m.close_button(frame, sf(1.25));
+        assert_eq!(b125, Rect::new(100 + 400 - 32, 207, 25, 25));
+    }
+
+    #[test]
+    fn close_button_stays_inside_the_title_band() {
+        let m = SsdMetrics::LION;
+        for &v in &[1.0f32, 1.25, 1.5, 1.75, 2.0, 2.5] {
+            let scale = sf(v);
+            let insets = m.insets(DecorationMode::Server, scale);
+            let frame = Rect::new(0, 0, 640, 480);
+            let b = m.close_button(frame, scale);
+            // The button's own rectangle ends within the band's
+            // height (the top inset): a release inside it is a
+            // release inside the drawn title bar.
+            assert!(
+                (b.y + b.h as i32) <= insets.top as i32,
+                "scale {v}: button bottom {} exceeds band {}",
+                b.y + b.h as i32,
+                insets.top
+            );
+            assert!(b.x + b.w as i32 <= frame.x + frame.w as i32);
+        }
+    }
+
+    #[test]
+    fn close_button_never_leaves_a_degenerate_frame_wide() {
+        let m = SsdMetrics::LION;
+        // A frame thinner than the button: the rect saturates at the
+        // frame's left edge — never negative, never wider than the
+        // claim the ring test will gate.
+        let b = m.close_button(Rect::new(10, 10, 8, 40), sf(1.0));
+        assert_eq!(b, Rect::new(10, 15, 20, 20));
+        // Zero-sized frames stay degenerate-safe.
+        let z = m.close_button(Rect::new(0, 0, 0, 0), sf(2.0));
+        assert_eq!(z, Rect::new(0, 10, 40, 40));
     }
 
     #[test]

@@ -207,6 +207,14 @@ pub struct Scene {
     /// itself claims the ink it removes and the unhide claims the
     /// ink it restores. Drained by the damage pass.
     pub hide_claims: Vec<Rect>,
+    /// The drawn chrome's ledger (Phase 52): each serving band's
+    /// last-claimed frame rect. The damage pass diffs it against the
+    /// live truth — a band that moved, resized, hid, or died claims
+    /// its old rect, a band that came back or changed claims its new
+    /// one (the R2 rule's chrome sibling; the damage engine knows
+    /// only protocol damage, the band is the compositor's own ink
+    /// around it).
+    pub chrome_prev: HashMap<SurfaceId, Rect>,
 }
 
 impl Scene {
@@ -236,6 +244,7 @@ impl Scene {
             ghosts: GhostHost::default(),
             hidden: std::collections::HashSet::new(),
             hide_claims: Vec::new(),
+            chrome_prev: HashMap::new(),
             dirty: false,
             pending_releases: Vec::new(),
             flips: HashMap::new(),
@@ -1160,6 +1169,13 @@ pub struct World {
     /// library default keeps the dock off (plain pixels); the CLI's
     /// `--dock auto` serves the home dock.
     pub shell: crate::shell::Shell,
+    /// The SSD chrome pass (Phase 52): the drawn band's raster cache
+    /// — the title bar, the border ring, and the close affordance
+    /// every server-decorated window wears (the dock's own ink
+    /// model: CPU paint, cached per frame shape, no framebuffer).
+    /// The render pass prepares and reads it; the input pump's ring
+    /// hit test reads the same geometry truth.
+    pub chrome: crate::shell::ChromePass,
     /// The operator's forced output size (`--resolution WxH`, Phase
     /// 30): every selection — bring-up and every hotplug migration —
     /// prefers a mode of exactly this size, and a display that does
@@ -1980,7 +1996,22 @@ impl World {
                 slot.map_or((0, 0), |s| (s.output.layout.0, s.output.layout.1))
             } else {
                 let usable = self.shell.usable_physical();
-                (usable.x, usable.y)
+                // Phase 52: a server-decorated window maximizes with
+                // its *frame* filling the workspace area — the
+                // content sits inset by the chrome the machine
+                // applied (the title band and the border ring stay
+                // on-screen; a client-decorated window's buffer is
+                // its own whole footprint, its reserved insets live
+                // *inside* it, so the area's origin is its position
+                // — every Phase 49 CSD pin unchanged).
+                let chrome = self
+                    .toplevels
+                    .by_surface(surface)
+                    .filter(|t| t.decoration == ldp_shell::ssd::DecorationMode::Server)
+                    .map_or((0, 0), |_entry| {
+                        (applied.insets.left as i32, applied.insets.top as i32)
+                    });
+                (usable.x + chrome.0, usable.y + chrome.1)
             };
             let restore = self
                 .toplevels

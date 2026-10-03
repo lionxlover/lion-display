@@ -1,10 +1,76 @@
-# LDP Delivery Roadmap — 50 Phases
+# LDP Delivery Roadmap — 52 Phases
 
 Each phase lands as one reviewable, buildable, tested chunk (delivered to the
 user as `phase<N>.zip`; the final phase also produces the all-in-one bundle).
 Exit criteria are hard: a phase is not complete until every box is green.
 
 Legend: **EC** = exit criteria.
+
+---
+
+## Phase 52 — The drawn chrome *(delivered — see CHANGELOG 0.20.0)*
+
+The gap-filling program's second release (the ledger's next named
+line, one gap at a time): the **SSD chrome pass** — the drawn title
+bar, border ring, and close affordance every server-decorated window
+wears — and the **server-initiated close event** the frozen
+`toplevel.close` has awaited since v1. Zero wire movement: the event
+is already frozen; this phase gives it its first sender.
+
+* **The drawn band**: the compositor paints the chrome its configure
+  insets always reserved — the title bar (28 logical px), the border
+  ring (1), and the close affordance (a warm capsule carrying a
+  white ×) — as CPU ink on the dock's own model (no framebuffer, the
+  honest `NoFb` demotion: a visible band pins the frame to the
+  composite arm), cached per frame *shape* (stateless ink: geometry
+  is its only input, same-shaped windows share one raster).
+  CSD windows draw nothing (their buffer's top is their own chrome),
+  fullscreen covers everything (zero insets, no band), and a window
+  that never applied its insets draws nothing (the two-phase commit
+  owns the reservation).
+* **The geometry truth**: one answer — `chrome_geometry` — feeds the
+  render pass (the layer), the damage ledger (the claims), and the
+  input pump (the ring hit test); the applied configure is the
+  insets' source, the primary's scale the paint's.
+* **The close ask**: the drawn button's press *arms* (consumed — a
+  client never learns a press on pixels it does not own; the band's
+  press focuses its own window, the activated bit riding the
+  proposal), its release inside the same button *fires* — the frozen
+  `toplevel.close` emitted over the real socket, parked in the
+  outbox exactly like every routed event — and a drag away cancels
+  (the caption doctrine every desktop serves). The client destroys
+  the toplevel "when ready" (the frozen doc's own words): the server
+  never force-kills, the ignoring client keeps its window.
+* **The claims ledger**: the damage engine knows only protocol
+  damage; the band is the compositor's own ink around it. The ledger
+  diffs every serving band's frame rect against the last-claimed one
+  — a band that moved, resized, hid, or died claims its old rect, a
+  band that came back or newly serves claims its new one (the R2
+  rule's chrome sibling; minimize hides the chrome with the ink,
+  unminimize restores the exact bytes).
+* **The geometry regime**: a maximized SSD window's *frame* fills
+  the workspace area (the content inset by the applied chrome — the
+  band on-screen at every state; every Phase 49 CSD pin unchanged:
+  a client-decorated buffer is its own whole footprint).
+* **EC**: 6 `ldp-shell` geometry tests + 6 painter/palette unit
+  tests + 8 `chrome_session` real-socket tests (the close narrative
+  with the client's answer, the drag-away cancel and re-arm, the
+  ignoring client, the band press, the CSD territory, the fullscreen
+  cover, the pixel oracle with the minimize/unminimize byte
+  restoration, the maximized frame fill) + every prior suite green
+  (2,241 → 2,258); the freeze gates untouched (zero wire surface
+  moved); all tiers green.
+* **The honest remainders** (named, not hidden): the chrome-aware
+  *placement* (the cascade places the buffer; a window parked at
+  the usable origin wears its top band above the visible area until
+  it engages geometry), the title *glyph* (the bar draws its shape;
+  a font rasterizer is a feature of its own), the Liquid
+  chrome-material dressing for the band (flat ink is this phase's
+  look), the chrome *drag* (the drawn title bar is not yet a move
+  grip — `start_move` remains the client's ask; the server-side
+  caption drag is the follow-on), the chrome *ghost* (a dying
+  window's content fades, its band leaves with the route), and the
+  window-menu family (the band's right press).
 
 ---
 
@@ -1581,8 +1647,9 @@ The protocol's first growth + the screenshot story + renderer perf.
 | v0.16.0 | 48 | the knock and the goodbye: the dialog arm served (`get_dialog` + the frozen `ldp.shell.dialog` interface — the machine's own serial clock, the centered placement at attach, the strict two-phase ack, the one-role rule enforced by name), the modal gate (a mapped modal dialog gates its parent's whole tree — the routing filter, the keyboard focus handoff, the modeless control), the sheet-dies-with-window doctrine (the parent's death closes its dialogs), and the window-close fade (the owned ghost: a row-tight copy of the dying window's last raster at its own z slot, the catalog's close spring, the vacated-rect removal claims, the A/B byte oracle) — zero wire surface moved, the freeze gate untouched |
 | v0.17.0 | 49 | the states arm: the frozen 17-request `ldp.shell.toplevel` vocabulary served whole — the geometry verbs (maximize fills the workspace minus insets, fullscreen covers the output with the pin; ack then commit realizes the placement, the restore point returns on the un-verb), the visibility verbs (minimize hides immediately — no render, no input, parked frame requests (App Nap's seam), leave_output; set_workspace moves and reports the clamped actual; sticky shows everywhere), the hints (bounded strings, saturating sizes), the strict ack, the machine-owned handshake under the seat's interaction clock (the data gate's serial, `propose_at`), the CSD insets honest, `workspace_count` at bind, `--workspaces N` — zero wire surface moved |
 | v0.19.0 | 51 | the focus and the view: the states arm’s follow-ons, part one — the frozen `activated` bit riding real proposals through every keyboard transition (the grace-parking `propose_state` never punishing a drag-draining client), the promotion doctrine (the frontmost window takes the keys when the holder leaves — hidden, unmapped, dead), and `shell.switch_workspace` served whole (the taskbar’s line: the clamp-honest `workspace_switched` broadcast to every binder, the visibility sweep with dialogs following their parents, the space-preferred focus, the hidden spaces’ frame parking, the no-op silence) — one request + one event appended additively, the freeze re-taken (98+123, 37 enums) |
+| v0.20.0 | 52 | the drawn chrome: the SSD band served whole — the title bar, the border ring, and the close affordance painted as CPU ink on the dock's own model (cached per frame shape, the honest `NoFb` demotion), the frozen `toplevel.close` event's first sender (the drawn button's press arms, its release inside the same affordance fires, a drag away cancels — the caption doctrine; the ignoring client keeps its window, the server never force-kills), the claims ledger (the R2 rule's chrome sibling: a band that moved, resized, hid, or died claims its rect — minimize hides the chrome with the ink, unminimize restores the exact bytes), and the chrome-aware geometry regime (a maximized SSD window's *frame* fills the workspace area, the content inset by the applied band) — zero wire movement: the event was frozen since v1, waiting for its sender; 2,241 → 2,258 tests |
 | v0.18.0 | 50 | the operator's hand: the interactive move/resize vocabulary the spec never grew, served whole — `start_move` (server-truth geometry at the pump's cadence, zero configures, the 48-px keep band), `start_resize` with the eight-edge grip (the edge algebra through the real two-phase commit, the `resizing` state riding live proposals, the position and the committed buffer realizing together, the final proposal clearing the state), the demotion (dragging a maximized window restores the floating size under the pointer's proportional grip), and the grace window (pointer-paced supersession never punishes a frame-cadence client — 8 superseded drag serials stay acknowledgeable, the verbs' strict doctrine preserved) — appended additively, the freeze re-taken (97+122, 37 enums) |
-| next | future | the dma-buf negotiation surface (client pools over the wire, the feedback tranches' carrier — the frozen `ldp.core.dmabuf` interface awaits its honest `create` arm), the dock's dumb-buffer plane delivery, a dedicated render thread (the single-mutex doctrine is load-bearing for the byte-exactness oracles; the pipelining line stays open), the Vulkan renderer on the proven seam, the real-panel end-to-end latency lab (the giants' 90s ride years of measured hardware tuning; the architecture and the CI budgets are ours), the quirk table's per-vendor rows (the mechanism shipped in Phase 37; the rows themselves accrue with hardware — the giants' decades are the honest remainder), the foundry's RBv3/OVT arms (CEA-861-H/I's successors to the blanking story — Phase 46 poured every family the VESA standards define; the CTA's own remain), the transitions catalog's remaining drivers (the workspace/app-switch/fullscreen/display/lock kinds ship their curves; the close fade's ghost shipped in Phase 48 — the geometry slide and genie ride the render-thread line), the states arm's last follow-on (the server-initiated `close` event — Phase 52's line, riding the SSD chrome pass and its drawn title-bar close button, the honest trigger the frozen event awaits; the `activated` bit and the operator-side space switching landed in Phase 51), the drag vocabulary's own follow-ons (press-issued serials on the wire — the device-event serial line; edge snapping — the snap-preview geometry; the live rubber-band between client commits — the render-thread line with the other geometry drivers), the private tier's screen-share negotiation (the broker-era line — `ldp.security`'s requests and the SessionBroker host in-process), per-surface home-output schedulers (the pacing grid is the primary's), multi-user remote identity (broker-era), TLS-class transport security |
+| next | future | the dma-buf negotiation surface (client pools over the wire, the feedback tranches' carrier — the frozen `ldp.core.dmabuf` interface awaits its honest `create` arm), the dock's dumb-buffer plane delivery, a dedicated render thread (the single-mutex doctrine is load-bearing for the byte-exactness oracles; the pipelining line stays open), the Vulkan renderer on the proven seam, the real-panel end-to-end latency lab (the giants' 90s ride years of measured hardware tuning; the architecture and the CI budgets are ours), the quirk table's per-vendor rows (the mechanism shipped in Phase 37; the rows themselves accrue with hardware — the giants' decades are the honest remainder), the foundry's RBv3/OVT arms (CEA-861-H/I's successors to the blanking story — Phase 46 poured every family the VESA standards define; the CTA's own remain), the transitions catalog's remaining drivers (the workspace/app-switch/fullscreen/display/lock kinds ship their curves; the close fade's ghost shipped in Phase 48 — the geometry slide and genie ride the render-thread line), the drawn chrome's own follow-ons (the server-side caption drag — the band as a move grip, `start_move`'s machinery at the pump's cadence; the title glyph — a font rasterizer of its own; the Liquid chrome-material dressing; the chrome-aware placement; the chrome ghost), the drag vocabulary's own follow-ons (press-issued serials on the wire — the device-event serial line; edge snapping — the snap-preview geometry; the live rubber-band between client commits — the render-thread line with the other geometry drivers), the private tier's screen-share negotiation (the broker-era line — `ldp.security`'s requests and the SessionBroker host in-process), per-surface home-output schedulers (the pacing grid is the primary's), multi-user remote identity (broker-era), TLS-class transport security |
 
 ### Standing rule
 

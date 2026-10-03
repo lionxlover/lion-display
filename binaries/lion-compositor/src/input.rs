@@ -168,8 +168,61 @@ impl KeymapBundle {
     }
 }
 
-/// The served input state: the router, the bindings, the focus, the
-/// devices.
+/// One chrome-band hit (Phase 52 — the drawn chrome): the window
+/// whose band ring the pointer claims, the wire address a close ask
+/// would ride, and whether the claim lands on the drawn close
+/// affordance itself.
+#[derive(Clone, Copy, Debug)]
+struct ChromeHit {
+    /// The chrome's window.
+    surface: SurfaceId,
+    /// The owning client (the close ask's address).
+    client: u32,
+    /// The `ldp.shell.toplevel` object (the close ask's target).
+    object: u32,
+    /// Whether the hit lands inside the drawn close button.
+    close: bool,
+}
+
+/// The chrome arms' resolved state (Phase 52): whether the batch
+/// pressed, the band hit the buttons claim, whether the grip's
+/// release was consumed, and the close ask a qualifying release
+/// fired.
+#[derive(Clone, Copy, Debug)]
+struct ChromeArms {
+    /// Whether the batch carried a button press.
+    pressed: bool,
+    /// The band hit (the press's claim, or the release's position
+    /// when a grip was held).
+    hit: Option<ChromeHit>,
+    /// Whether the release that resolved a grip was consumed.
+    consumed_release: bool,
+    /// The close ask (client, object) a qualifying release fired.
+    close_ask: Option<(u32, u32)>,
+}
+
+/// A held chrome press (Phase 52): the arm-fire model the caption
+/// serves — the press on the band *arms* the grip, the release inside
+/// the same window's close affordance *fires* the close ask (the
+/// frozen `toplevel.close` event's first sender), a drag away
+/// cancels it. The grip is the pump's own state: the router never
+/// learns the band's buttons (they never route to the client).
+#[derive(Clone, Copy, Debug)]
+struct ChromeGrip {
+    /// The window whose band was pressed.
+    surface: SurfaceId,
+    /// The owning client (the death sweeps' match).
+    client: u32,
+    /// The `ldp.shell.toplevel` object (the death sweeps' match).
+    object: u32,
+    /// The button that armed the grip.
+    button: u32,
+    /// Whether the press landed on the close affordance.
+    close: bool,
+}
+
+/// The per-seat input state: the router, the bindings, the focus,
+/// the devices, and the scripted feed.
 pub struct InputState {
     /// The one seat's router (seat0; multi-seat is broker-era work).
     router: Router,
@@ -177,6 +230,9 @@ pub struct InputState {
     bindings: HashMap<ClientId, DeviceObjects>,
     /// The shell's keyboard focus (click-to-focus).
     keyboard_focus: Option<SurfaceId>,
+    /// The held chrome press (Phase 52 — the drawn band's grip; the
+    /// close affordance's arm-fire state).
+    chrome_grip: Option<ChromeGrip>,
     /// The keymap (None only when even the memfd failed).
     keymap: Option<KeymapBundle>,
     /// The real devices (empty when off, headless, or no /dev/input).
@@ -214,6 +270,7 @@ impl InputState {
             router,
             bindings: HashMap::new(),
             keyboard_focus: None,
+            chrome_grip: None,
             keymap: Some(KeymapBundle { blob }),
             devices: Vec::new(),
             scripted: VecDeque::new(),
@@ -412,6 +469,40 @@ impl World {
         }
     }
 
+    /// End any chrome grip the dying *surface* held (Phase 52 — the
+    /// drawn chrome's death sweep): a destroyed window's band holds
+    /// no press, and its close affordance can never fire again (the
+    /// frozen `close` event's target is gone with the route).
+    pub fn end_chrome_grip_of_surface(&mut self, surface: SurfaceId) {
+        if self.input.chrome_grip.is_some_and(|g| g.surface == surface) {
+            self.input.chrome_grip = None;
+        }
+    }
+
+    /// End any chrome grip the dying *toplevel object* held (Phase
+    /// 52): the object's death retires its role — the surface may
+    /// live on roleless, but the close affordance's ask addressed
+    /// this object, and a dead object receives nothing.
+    pub fn end_chrome_grip_of_object(&mut self, client: u32, object: u32) {
+        if self
+            .input
+            .chrome_grip
+            .is_some_and(|g| g.client == client && g.object == object)
+        {
+            self.input.chrome_grip = None;
+        }
+    }
+
+    /// End any chrome grip the dying *client* held (Phase 52): the
+    /// session's teardown takes its windows and their bands; the
+    /// grip's close ask would park in an outbox queue that dies with
+    /// the session anyway — the sweep keeps the state honest.
+    pub fn end_chrome_grips_of_client(&mut self, client: u32) {
+        if self.input.chrome_grip.is_some_and(|g| g.client == client) {
+            self.input.chrome_grip = None;
+        }
+    }
+
     /// Clear the `resizing` bit of a retired drag's machine (the
     /// quiet end's one piece of hygiene).
     fn quiet_drag(&mut self, drag: &crate::shell::LiveDrag) {
@@ -576,14 +667,19 @@ impl World {
         // The real input arrival: activity, the render trigger, the
         // latency arm (Phase 31's rig, now the true path).
         self.inject_input();
+        // Phase 52 — the drawn chrome's arms (the band's press and
+        // the grip's release, resolved before the router ever sees
+        // the batch): see `chrome_arms`.
+        let arms = self.chrome_arms(events);
         // Click-to-focus: a button press re-targets the keyboard
         // focus at the pointer's hit (the shell's policy — the
-        // router only reads what the scene supplies).
-        if events
-            .iter()
-            .any(|e| matches!(e, InputEvent::Button { pressed: true, .. }))
-        {
-            let hit = self.pointer_hit();
+        // router only reads what the scene supplies). The band's
+        // press focuses its own window: the drawn chrome belongs to
+        // the window it crowns.
+        if arms.pressed {
+            let hit = arms
+                .hit
+                .map_or_else(|| self.pointer_hit(), |c| Some(c.surface));
             if hit != self.input.keyboard_focus {
                 self.retarget_keyboard_focus(hit);
             }
@@ -596,10 +692,37 @@ impl World {
             keyboard_focus: focus,
             bounds,
         };
-        let routed = self.input.router.feed_frame(class, events, now, &scene);
+        // The band's buttons never reach the router: the press the
+        // band claimed, and the release that resolved its grip, are
+        // consumed here (the router's own grabs never learn them —
+        // a chrome press can never start a client grab).
+        let consumed = arms.hit.is_some() || arms.consumed_release;
+        let routed = if consumed {
+            let filtered: Vec<InputEvent> = events
+                .iter()
+                .filter(|e| !matches!(e, InputEvent::Button { .. }))
+                .cloned()
+                .collect();
+            self.input.router.feed_frame(class, &filtered, now, &scene)
+        } else {
+            self.input.router.feed_frame(class, events, now, &scene)
+        };
         for r in &routed {
             if let Some(entry) = routed_entry(r) {
                 self.outboxes.push(entry);
+            }
+        }
+        // The close ask rides the outbox (the wake contract's own
+        // vehicle): the owning client collects it at its next wake
+        // point, exactly the way every routed event parks.
+        if let Some((client, object)) = arms.close_ask {
+            if let Some(client_id) = ClientId::new(client) {
+                self.outboxes.push(OutboxEntry::event(
+                    client_id,
+                    ObjectId::from_wire(object),
+                    "close",
+                    vec![],
+                ));
             }
         }
         // Phase 50 — the operator's hand: a live drag rides the
@@ -634,6 +757,75 @@ impl World {
         routed.len()
     }
 
+    /// The drawn chrome's arms (Phase 52): the band's press and the
+    /// grip's release, resolved before the router ever sees the
+    /// batch. The press *arms* the band's grip (the close
+    /// affordance's arm-fire model — the press on the band is
+    /// consumed entirely: a client never learns a press on pixels it
+    /// does not own); the release resolves it: inside the same close
+    /// rect it *fires* the frozen `toplevel.close` event, anywhere
+    /// else it cancels (the caption drag-away doctrine every desktop
+    /// serves — a release of another button routes per its own
+    /// truth, the grip stands for its own).
+    fn chrome_arms(&mut self, events: &[InputEvent]) -> ChromeArms {
+        let pressed = events
+            .iter()
+            .any(|e| matches!(e, InputEvent::Button { pressed: true, .. }));
+        let release_button = events.iter().find_map(|e| match e {
+            InputEvent::Button {
+                button,
+                pressed: false,
+            } => Some(*button),
+            _ => None,
+        });
+        let grip_held = self.input.chrome_grip.is_some();
+        let mut hit = None;
+        if pressed || (release_button.is_some() && grip_held) {
+            hit = self.chrome_hit();
+        }
+        // The press arms.
+        if pressed {
+            if let Some(band) = hit {
+                if let Some(InputEvent::Button { button, .. }) = events
+                    .iter()
+                    .find(|e| matches!(e, InputEvent::Button { pressed: true, .. }))
+                {
+                    self.input.chrome_grip = Some(ChromeGrip {
+                        surface: band.surface,
+                        client: band.client,
+                        object: band.object,
+                        button: *button,
+                        close: band.close,
+                    });
+                }
+            }
+        }
+        // The release fires or cancels.
+        let mut close_ask = None;
+        let mut consumed_release = false;
+        if let Some(button) = release_button {
+            if let Some(grip) = self.input.chrome_grip {
+                if grip.button == button {
+                    self.input.chrome_grip = None;
+                    consumed_release = true;
+                    // The fire: the release landed where the press
+                    // armed — the same window's close affordance.
+                    if let Some(band) = hit {
+                        if grip.close && band.close && band.surface == grip.surface {
+                            close_ask = Some((band.client, band.object));
+                        }
+                    }
+                }
+            }
+        }
+        ChromeArms {
+            pressed,
+            hit,
+            consumed_release,
+            close_ask,
+        }
+    }
+
     /// The pointer's current hit (the topmost mapped root under the
     /// router's position).
     fn pointer_hit(&mut self) -> Option<SurfaceId> {
@@ -647,6 +839,98 @@ impl World {
         let pos = self.input.router.pointer_position();
         let point = ldp_core::geometry::PointF::new(pos.x, pos.y);
         ldp_seat::focus::hit_test(scene.surfaces, point).map(|k| SurfaceId::from_raw(k.as_u64()))
+    }
+
+    /// The pointer's chrome hit (Phase 52 — the drawn chrome): the
+    /// topmost SSD window whose *band ring* — the frame around the
+    /// content, the drawn chrome's own territory — contains the
+    /// pointer. A content claim routes first (the pointer's own hit
+    /// test: a window's ink owns its presses, the band claims only
+    /// what no content does — and the topmost walk keeps a higher
+    /// window's band above a lower window's ink). The same gating the
+    /// routing view serves: hidden windows take no chrome (their band
+    /// left the canvas with their ink), a modal-gated tree's chrome
+    /// is equally gated (the dialog owns the desktop). `None` when
+    /// the pointer is over content, over nothing, or over a band that
+    /// draws no close meaning (CSD, roleless, fullscreen-covered —
+    /// [`crate::shell::chrome_geometry`]'s one truth).
+    fn chrome_hit(&mut self) -> Option<ChromeHit> {
+        // The content claim: whatever the router would route, the
+        // chrome never steals (the press a window's own ink owns).
+        if self.pointer_hit().is_some() {
+            return None;
+        }
+        let pos = self.input.router.pointer_position();
+        let point = ldp_core::geometry::Point::new(pos.x as i32, pos.y as i32);
+        let snap = self.scene.snapshot();
+        let gated = self.gated_surfaces(&snap);
+        for id in snap.render_order().iter().rev() {
+            let Some(node) = snap.node(*id) else {
+                continue;
+            };
+            if !node.mapped || self.scene.hidden.contains(id) || gated.contains(id) {
+                continue;
+            }
+            // The ring: inside the frame, outside the content (a
+            // click-through content hole falls past this window too —
+            // the input region's own truth, never overridden by the
+            // chrome).
+            if node.bounds.contains_point(point) {
+                continue;
+            }
+            let Some((frame, _insets)) =
+                crate::shell::chrome_geometry(&self.toplevels, *id, node.bounds)
+            else {
+                continue;
+            };
+            if !frame.contains_point(point) {
+                continue;
+            }
+            let Some(entry) = self.toplevels.by_surface(*id) else {
+                continue;
+            };
+            let Some(route) = self.scene.routes.get(id) else {
+                continue;
+            };
+            // The close affordance under the same primary scale the
+            // band itself applied (the policy's own doctrine).
+            let scale = self
+                .outputs
+                .first()
+                .map_or(ldp_core::scale::ScaleFactor::IDENTITY, |slot| {
+                    slot.output.scale
+                });
+            let close = ldp_shell::ssd::SsdMetrics::LION
+                .close_button(frame, scale)
+                .contains_point(point);
+            return Some(ChromeHit {
+                surface: *id,
+                client: route.client.as_u32(),
+                object: entry.object,
+                close,
+            });
+        }
+        None
+    }
+
+    /// The modal gate's membership (Phase 48): the gated roots —
+    /// parents of live *mapped* modal dialogs, plus the popups rooted
+    /// under them. The routing view and the chrome hit test read the
+    /// one answer (a gated tree takes no input, and no chrome).
+    fn gated_surfaces(&self, snap: &ldp_compositor::snapshot::FrameSnapshot) -> Vec<SurfaceId> {
+        let mut gated: Vec<SurfaceId> = Vec::new();
+        for (parent, dialog) in self.dialogs.gating_pairs() {
+            let dialog_mapped = snap.node(dialog).is_some_and(|n| n.mapped);
+            if dialog_mapped {
+                gated.push(parent);
+                for (pc, po) in self.popups.children_of_ids(parent) {
+                    if let Some(entry) = self.popups.entry(pc, po) {
+                        gated.push(entry.surface);
+                    }
+                }
+            }
+        }
+        gated
     }
 
     /// Move the keyboard focus: `keyboard.leave` to the old owner,
@@ -683,7 +967,7 @@ impl World {
         }
     }
 
-    /// Phase 51 — the focus truth: drive the `activated` state bit on
+    /// Phase 51 — the focus truth: drive the `activat
     /// one focus transition and propose it through the grace-parking
     /// state proposal (a focus move the client never asked for never
     /// punishes a client draining a drag's serials). Toplevel-role
@@ -822,21 +1106,9 @@ impl World {
         // router routes roots only, so the gate is the parent root
         // plus the popups rooted under it — membership the scene
         // supplies, the router never guesses (its own doctrine).
-        let gated: Vec<SurfaceId> = {
-            let mut gated = Vec::new();
-            for (parent, dialog) in self.dialogs.gating_pairs() {
-                let dialog_mapped = snap.node(dialog).is_some_and(|n| n.mapped);
-                if dialog_mapped {
-                    gated.push(parent);
-                    for (pc, po) in self.popups.children_of_ids(parent) {
-                        if let Some(entry) = self.popups.entry(pc, po) {
-                            gated.push(entry.surface);
-                        }
-                    }
-                }
-            }
-            gated
-        };
+        // Phase 52: the chrome hit test reads the same membership
+        // (gated chrome takes no presses either).
+        let gated = self.gated_surfaces(&snap);
         let mut surfaces = Vec::new();
         for id in snap.render_order().iter().rev() {
             // Roots only: the input footprint of a tree is its root.

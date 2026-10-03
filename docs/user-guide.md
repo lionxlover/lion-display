@@ -879,6 +879,41 @@ pointer-paced flood also collapses in your event queue: you read
 the freshest live configure per wake, the final one always
 delivers.)
 
+
+## 3.15 The drawn chrome: server decorations and the close button
+
+Since v0.20.0 the chrome your `get_toplevel(surface, decoration=
+server)` reserved is drawn by the compositor itself — the title
+bar, the border ring, and the close button. Nothing changes in
+your protocol flow: the insets your configure carries are the
+same reservation they always were, your content simply never
+underdraws the band. Two events can now reach you that could not
+before:
+
+```text
+# the operator clicked the drawn close button:
+toplevel.close()
+#   no arguments. Destroy the toplevel when you are ready —
+#   save your work, flush your state, then destroy. The server
+#   never force-kills: ignoring the event keeps your window.
+```
+
+The close click follows the caption doctrine: the operator's
+*press-then-release inside the button* is the ask (a press that
+drags away cancels — the click that left never happened). Your
+pointer never sees either half: the band is compositor-owned
+pixels, its presses are consumed before routing — the only thing
+that crosses the wire is the ask itself. Client-decorated windows
+(`decoration=client`) see none of this: your buffer's top rows
+are your own title bar, your presses route to you, and no close
+button is drawn for you. Fullscreen covers the chrome entirely
+(zero insets — the close affordance goes with the band).
+
+If you draw your own title bar but still want to react to a
+server-side close ask (session policy, the future window menu),
+the `close` event arrives the same way — the event is toplevel
+vocabulary, not SSD vocabulary: any toplevel can receive it.
+
 ## 4. Sockets and discovery
 
 LDP transports run over abstract-namespace AF_UNIX sockets (no

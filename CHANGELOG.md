@@ -1,5 +1,74 @@
 # Changelog
 
+## [0.20.0] — 2026-10-03 — The drawn chrome
+
+Phase 52: the gap-filling program's second release (the ledger's
+next named line, one gap at a time): the **SSD chrome pass** and
+the **server-initiated close event** — the drawn title bar, border
+ring, and close affordance every server-decorated window wears,
+and the frozen `toplevel.close`'s first sender. Zero wire
+movement: the event has been frozen since v1; this version gives
+it the trigger the frozen doc named ("the user asked to close —
+window button"). 2,241 → 2,258 tests, every prior suite green,
+both freeze gates untouched.
+
+* **The drawn band**: the compositor paints the chrome its
+  configure insets always reserved — the title bar (28 logical
+  px), the border ring (1), and the close affordance (a warm
+  capsule carrying a white ×) — as CPU ink on the dock's own
+  model: no framebuffer (the honest `NoFb` demotion — a visible
+  band pins the frame to the composite arm, exactly the ledger's
+  subtraction the dock serves), tightly-packed premultiplied
+  rows, cached per frame *shape* (the ink is stateless: geometry
+  is its only input, same-shaped windows share one raster, a
+  resize re-paints). One geometry answer — `chrome_geometry`,
+  keyed by the *applied* configure — feeds the render pass (the
+  layer beneath the content), the damage ledger (the claims), and
+  the input pump (the ring hit test). CSD windows draw nothing
+  (their buffer's top is their own chrome — the system grid
+  reserves the hit zone *inside* it), fullscreen covers everything
+  (zero insets), and a window that never applied its insets draws
+  nothing (the two-phase commit owns the reservation).
+* **The close ask**: the drawn button follows the caption
+  doctrine every desktop serves — the press *arms* (consumed
+  entirely: the client's pointer never learns a press on pixels
+  it does not own, the router's grabs never see it, and the
+  window takes the focus — the `activated` bit riding the
+  proposal the focus truth serves), the release inside the same
+  affordance *fires*: the frozen `toplevel.close` emitted over
+  the real socket, parked in the outbox exactly like every
+  routed event. A drag away cancels (the click that left never
+  happened; the grip re-arms on the next). The client destroys
+  the toplevel "when ready" — the frozen doc's own words: the
+  server never force-kills, the client that ignores the ask keeps
+  its window and its desktop keeps working with it. The death
+  sweeps clear the grip with the window, the object, and the
+  session.
+* **The claims ledger**: the damage engine knows only protocol
+  damage (the buffer's truth); the band is the compositor's own
+  ink *around* it. The ledger — `scene.chrome_prev`, the
+  vacate-claims family's own sibling — diffs every serving band's
+  frame rect against the one the last pass claimed: a band that
+  moved or resized claims both ends (the R2 rule's chrome
+  sibling), a band that hid or died claims its old rect, a band
+  that came back or newly serves claims its new one. Minimize
+  hides the chrome with the ink (the byte-exact restore pins it:
+  the band, the ring, the affordance, the content — the exact
+  words back on unminimize).
+* **The geometry regime**: a maximized SSD window's *frame* fills
+  the workspace area — the content lands inset by the applied
+  chrome (the title bar on-screen at every state). Every Phase 49
+  CSD pin is unchanged: a client-decorated window's buffer is its
+  own whole footprint, the area's origin is its position.
+* **The tests' own truths**: the pixel oracle reads the palette
+  the painter owns (`BAND_RGB`, `RING_RGB`, `CLOSE_RGB`,
+  `GLYPH_RGB` — the words over the opaque-black desktop are the
+  painter's own arithmetic); the pointer walks in
+  accelerator-neutral steps (the drag suite's hard lesson, made
+  a helper); the wake-point doctrine on the client side (the
+  events ride the wake that follows the message — the count
+  discipline waits, never a single roundtrip).
+
 ## [0.19.0] — 2026-10-02 — The focus and the view
 
 Phase 51: the states arm's follow-ons, part one — the ledger's own

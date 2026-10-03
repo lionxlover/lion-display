@@ -29,6 +29,13 @@ and the visibility verbs with App-Nap frame parking (the minimize
 DWM hides by clipping the window from the composition; LDP parks
 the frame economy too — the occlusion line's own machinery, reused).
 Phase 50 (v0.18.0) closed the operator's-hand line — the
+Phase 52 (v0.20.0) closed the drawn-chrome line — the SSD
+pass (the title bar, the border ring, and the close affordance as
+compositor-owned CPU ink, the claims ledger, the chrome-aware
+maximize) and the server-initiated `close` event the frozen spec
+awaited (the drawn button's press arms, its release fires, a drag
+away cancels — DWM's caption close and WindowServer's title-bar
+close answered with drawn chrome of our own).
 interactive move/resize vocabulary the spec never grew: the
 title-bar drag and the eight-edge grip, where DWM's
 `WM_SYSCOMMAND`/`SC_MOVE` and WindowServer's title-bar drags are

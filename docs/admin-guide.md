@@ -525,6 +525,32 @@ geometry-stated window is refused by design. A grip dies with its
 window, its app, or a superseding interaction — no zombie drags
 hold the desktop's geometry.
 
+### The drawn chrome: SSD and close expectations (v0.20.0)
+
+Server-decorated windows now wear their chrome drawn: the title
+bar, the border ring, and the close button are compositor-owned
+ink around the content (client-decorated windows draw their own —
+a CSD app's title bar is its buffer's top, its presses route to
+it). Three operator-visible doctrines follow. First, the **close
+ask is honest, not forced**: the drawn button's click delivers
+`toplevel.close` to the app, and the app destroys the toplevel
+*when it services its protocol* — an app that never acks never
+closes, and the honest reading of "the close button does
+nothing" is that the app is not servicing its protocol (the same
+doctrine as the maximize verb's; the server never force-kills).
+Second, the **band consumes its own presses**: a click on the
+title bar never reaches the app (it activates and focuses the
+window instead — the drawn chrome is the operator's, not the
+client's), so an app cannot be blamed for a click it never saw.
+Third, the **chrome follows the window's ink economics**: a
+minimized window's chrome leaves the canvas with its ink and
+returns byte-identically, a visible band pins the frame to the
+composite arm (the honest NoFb demotion — same as the dock's),
+and a maximized SSD window fills the screen with its *frame*
+(the title bar stays on-screen at every state). A press-armed
+close that drags away cancels (the caption doctrine); the grip
+dies with the window, the object, or the session.
+
 ## 5. Troubleshooting
 
 * **Service starts then exits 0 immediately** — `--mode auto` found a

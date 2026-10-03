@@ -384,12 +384,29 @@ system talks to; `ldp-client` (Phase 5) is a zero-dependency-safe library
   shrink realizing at the client's cadence. The input pump owns the
   drag's heartbeat (§14's own seam — the input pump advances it); the
   deaths sweep the grip.
-* **Decorations:** server-side by default (LionOS draws the chrome, matching
-  the macOS-inspired visual identity of LionOS; clients get decoration
-  insets in every `configure` so client content never underdraws the chrome).
-  Clients may opt for client-side decorations at creation; the shell then
-  applies the LionOS decoration *metrics* (shadow margins, hit zones) so CSD
-  apps still land on the system grid.
+* **Decorations** (the SSD pass served as of Phase 52): server-side by
+  default — and now *drawn*, matching the macOS-inspired visual identity
+  of LionOS. The configure insets were always the reservation; the chrome
+  pass paints what they reserve: the title bar (28 logical px), the
+  border ring (1), and the close affordance (a warm capsule carrying a
+  white ×) — CPU ink on the dock's own model (no framebuffer, the honest
+  `NoFb` demotion: a visible band pins the frame to the composite arm),
+  cached per frame *shape* (stateless ink — geometry is its only input).
+  One geometry answer — the *applied* configure's insets grown around
+  the content — feeds the render layer, the damage ledger, and the
+  input pump's ring hit test. The close affordance's release asks the
+  client to close (`toplevel.close`, the frozen event's first sender):
+  the press arms consumed (the client never learns a press on pixels it
+  does not own; the band's press focuses its own window), the release
+  inside the same button fires, a drag away cancels — the caption
+  doctrine every desktop serves; the client destroys the toplevel "when
+  ready" (the server never force-kills). A maximized SSD window's frame
+  fills the workspace area (the content inset by the applied chrome —
+  every Phase 49 CSD pin unchanged). Clients may opt for client-side
+  decorations at creation; the shell then applies the LionOS decoration
+  *metrics* (shadow margins, hit zones) so CSD apps still land on the
+  system grid — and the server draws nothing for them (their buffer's
+  top is their own chrome).
 * **Popups** (`ldp.popup`): anchor/gravity geometry with slide/flip constraint
   solving, pointer grabs with implicit dismissal, menus/submenus.
 * **Dialogs** (`ldp.dialog`, served as of Phase 48): transient windows
@@ -1208,7 +1225,10 @@ by VRR. The policy engine is pure, deterministic, and table-driven over
   cadence (server truth, `set_position_now`, the R2 damage rule
   repainting both ends), the resize's edge-algebra target proposes
   when the clamped size changed (§10.4's drag row carries the
-  delivery cadence, §8's grace window the acknowledgment cadence) —
+  delivery cadence, §8's grace window the acknowledgment cadence; the
+  drawn chrome's grip rides the same pump — the band's press consumed
+  before the router ever sees it, its release firing the frozen
+  `toplevel.close`, §8's SSD pass) —
   and the button's release retires the grip (the resize's final
   proposal, the move's silence). The pump reads the router's own
   freshest position — the same position state the routed motion

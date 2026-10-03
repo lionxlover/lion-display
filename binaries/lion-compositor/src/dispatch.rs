@@ -2637,6 +2637,10 @@ impl Dispatcher for CompositorDispatcher {
                     if world.drags.surface() == Some(surface) {
                         world.end_drag_silent();
                     }
+                    // Phase 52: the window's chrome grip ends with it
+                    // (the band left the canvas; its close affordance
+                    // can never fire).
+                    world.end_chrome_grip_of_surface(surface);
                     world.scene.destroy_surface(surface);
                     // Phase 51 — the focus truth: a dying focus holder
                     // hands the keys to the frontmost window that
@@ -2672,6 +2676,10 @@ impl Dispatcher for CompositorDispatcher {
                 {
                     world.end_drag_silent();
                 }
+                // Phase 52: the object's chrome grip ends with it (a
+                // dead object receives no close ask, whatever band
+                // still crowns the surface).
+                world.end_chrome_grip_of_object(client.as_u32(), object.as_u32());
                 world.toplevels.drop_entry(client.as_u32(), object.as_u32());
                 if let Some(surface) = world.scene.toplevel_of(client, object) {
                     world.scene.unregister_toplevel(client, object, surface);
@@ -2787,6 +2795,9 @@ impl Dispatcher for CompositorDispatcher {
         {
             world.end_drag_silent();
         }
+        // Phase 52: the client's chrome grip ends with its session
+        // (the outbox queue the close ask would park in dies here).
+        world.end_chrome_grips_of_client(client.as_u32());
         world.scene.drop_client(client);
         // Phase 44 bookkeeping: the gone client's registries (fan-out
         // targets) and global binds (withdrawal candidates) leave with

@@ -333,6 +333,50 @@ impl World {
         for rect in std::mem::take(&mut self.scene.hide_claims) {
             repaint.add(rect);
         }
+        // Phase 52 — the drawn chrome's own claims: the band is the
+        // compositor's ink *around* content the damage engine knows
+        // nothing about (protocol damage ends at the buffer). The
+        // ledger diffs every serving band's frame against the one the
+        // last pass claimed — a band that moved or resized claims
+        // both ends (the R2 rule's chrome sibling), a band that hid
+        // or died claims its old rect, a band that came back or
+        // newly serves claims its new one. Unchanged bands claim
+        // nothing: the full stack re-composites wherever anything
+        // else claims, the band's own pixels never move on their
+        // own.
+        {
+            let mut live: HashMap<SurfaceId, Rect> = HashMap::new();
+            for id in snapshot.render_order() {
+                let Some(node) = snapshot.node(*id) else {
+                    continue;
+                };
+                if !node.mapped || self.scene.hidden.contains(id) {
+                    continue;
+                }
+                if let Some((frame, _)) =
+                    crate::shell::chrome_geometry(&self.toplevels, *id, node.bounds)
+                {
+                    live.insert(*id, frame);
+                }
+            }
+            let prev = std::mem::take(&mut self.scene.chrome_prev);
+            for (id, old) in &prev {
+                match live.get(id) {
+                    Some(cur) if cur == old => {}
+                    Some(cur) => {
+                        repaint.add(*old);
+                        repaint.add(*cur);
+                    }
+                    None => repaint.add(*old),
+                }
+            }
+            for (id, cur) in &live {
+                if !prev.contains_key(id) {
+                    repaint.add(*cur);
+                }
+            }
+            self.scene.chrome_prev = live;
+        }
         // The HDR fold (Phase 31): the stack summary over the desktop
         // (every mapped surface's color description and HDR metadata)
         // feeds the output-mode controller's hysteresis — an HDR
@@ -486,6 +530,12 @@ impl World {
         let mut ghosts: Vec<&crate::scene::Ghost> = scene.ghosts.ghosts.iter().collect::<Vec<_>>();
         ghosts.sort_by_key(|g| g.z);
         let mut gi = 0usize;
+        // Phase 52: the surfaces the walk has pushed layers for — the
+        // ghost insert's own z semantic (a ghost's z counts *surfaces*,
+        // not layers; the chrome pass can push two layers under one
+        // window, so the insert test rides this counter, staying
+        // byte-identical to `facts.len()` whenever no chrome serves).
+        let mut walked = 0usize;
         for id in snapshot.render_order() {
             let Some(node) = snapshot.node(*id) else {
                 continue;
@@ -538,11 +588,61 @@ impl World {
             // The ghosts whose slot this layer takes (the fade's z
             // fidelity: the ghost lands exactly where its window
             // stood, before the layer that now occupies the index).
-            while gi < ghosts.len() && ghosts[gi].z <= facts.len() {
+            while gi < ghosts.len() && ghosts[gi].z <= walked {
                 let (f, l) = ghost_layer(ghosts[gi], layout, ctx.negotiated);
                 facts.push(f);
                 stack.push(l);
                 gi += 1;
+            }
+            walked += 1;
+            // Phase 52 — the drawn chrome (the SSD pass): a
+            // server-decorated window's band paints *beneath* its
+            // content — the title bar, the border ring, and the close
+            // affordance, CPU ink on the dock's own model (no
+            // framebuffer, the honest `NoFb` demotion: a visible band
+            // pins the frame to the composite arm, exactly the
+            // ledger's subtraction the dock serves). The raster is
+            // the prepare's (the render slot's mutable half, before
+            // this walk); the shape is [`chrome_geometry`]'s one
+            // truth. Plain styling: the band's own ink is the look,
+            // the Liquid chrome-material dressing is a follow-on
+            // line. Client-decorated, roleless, and
+            // fullscreen-covered windows draw nothing here.
+            if let Some((frame, insets)) =
+                crate::shell::chrome_geometry(ctx.toplevels, *id, node.bounds)
+            {
+                let shape = crate::shell::ChromeShape::of(frame, insets, ctx.chrome_scale);
+                if let Some(raster) = ctx.chrome.raster(shape) {
+                    let local_frame = frame.translate(-layout.0, -layout.1);
+                    facts.push(LayerFacts {
+                        dest: local_frame,
+                        width: local_frame.w,
+                        height: local_frame.h,
+                        format: ldp_core::buffer::FourCC::ARGB8888,
+                        modifier: Modifier::LINEAR,
+                        transform: ldp_core::geometry::Transform::Normal,
+                        color: ldp_core::color::ColorDescription::srgb_sdr(),
+                        opacity: 1.0,
+                        opaque: Region::new(),
+                        fb: None,
+                        needs_backdrop: false,
+                        styled: false,
+                        system: true,
+                    });
+                    let layer = BufferView::new(raster.key, &raster.ink, raster.geometry.clone())
+                        .ok()
+                        .map(|view| {
+                            SurfaceLayer::new(
+                                view,
+                                local_frame,
+                                ldp_core::geometry::Transform::Normal,
+                                ldp_core::color::ColorDescription::srgb_sdr(),
+                                1.0,
+                                Region::new(),
+                            )
+                        });
+                    stack.push(layer);
+                }
             }
             facts.push(crate::plane_session::client_layer_facts(
                 local_bounds,
@@ -658,6 +758,19 @@ impl World {
             )
         };
         let snapshot = self.scene.snapshot();
+        // Phase 52 — the chrome pass's prepare (the mutable half):
+        // repaint any raster the grade walk below will ask for, under
+        // the primary's scale (the policy's own doctrine). The walk
+        // then reads immutably; both ask [`chrome_geometry`]'s one
+        // truth, so they never diverge.
+        let chrome_scale = self
+            .outputs
+            .first()
+            .map_or(ldp_core::scale::ScaleFactor::IDENTITY, |slot| {
+                slot.output.scale
+            });
+        self.chrome
+            .prepare(&snapshot, &self.scene, &self.toplevels, chrome_scale);
         // The dock draws where the desktop's chrome shows (Phase 37):
         // the primary owns it in an extended desktop; a mirrored
         // desktop shows it on *every* display — the dock is the
@@ -678,6 +791,9 @@ impl World {
                 scene: &self.scene,
                 snapshot: &snapshot,
                 shell: &self.shell,
+                toplevels: &self.toplevels,
+                chrome: &self.chrome,
+                chrome_scale,
                 effects: self.effects,
                 negotiated: tone_ceiling,
                 popups: &self.popups,
@@ -1444,6 +1560,16 @@ struct GradeContext<'a, 'b> {
     snapshot: &'a ldp_compositor::snapshot::FrameSnapshot,
     /// The positioning shell (the system dock).
     shell: &'a crate::shell::Shell,
+    /// The toplevel host (Phase 52: the chrome geometry's role truth
+    /// — which windows are server-decorated and what insets they
+    /// applied).
+    toplevels: &'a crate::shell::ToplevelHost,
+    /// The SSD chrome pass (Phase 52: the prepared rasters — the
+    /// render slot's mutable half ran before this walk).
+    chrome: &'a crate::shell::ChromePass,
+    /// The chrome's paint scale (the primary's — the policy's own
+    /// doctrine; the grade walk shapes every lookup under it).
+    chrome_scale: ldp_core::scale::ScaleFactor,
     /// The resolved Liquid tier.
     effects: ldp_renderer::EffectTier,
     /// The negotiated luminance ceiling (Phase 38), in nits: `Some`

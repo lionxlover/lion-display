@@ -469,6 +469,13 @@ fn capsule_words(buf: &mut [u32], w: u32, x0: i64, y0: i64, pw: i64, ph: i64) {
         | u32::from(prem[0]) << 16
         | u32::from(prem[1]) << 8
         | u32::from(prem[2]);
+    capsule_word(buf, w, x0, y0, pw, ph, word);
+}
+
+/// The capsule painter's parameterized core (Phase 52: the close
+/// affordance paints its own capsule — the dock's pill row and the
+/// chrome's button share the geometry, not the ink).
+fn capsule_word(buf: &mut [u32], w: u32, x0: i64, y0: i64, pw: i64, ph: i64, word: u32) {
     let r = ph / 2;
     let in_cap =
         |x: i64, y: i64, cx: i64, cy: i64| (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
@@ -515,6 +522,291 @@ fn dock_geometry(w: u32, h: u32) -> BufferGeometry {
     let storage = u64::from(w) * u64::from(h) * 4;
     BufferGeometry::new(w, h, FourCC::ARGB8888, Modifier::LINEAR, &planes, storage)
         .expect("dock-sized geometry is always valid")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 52 — the SSD chrome pass (the drawn band and its close button)
+// ---------------------------------------------------------------------------
+
+/// The title band's ink: a light, near-opaque bar (the drawn chrome's
+/// base). `pub` for the pixel oracle's honesty (the tests assert the
+/// exact words the painter writes).
+pub const BAND_RGB: [u8; 3] = [238, 241, 246];
+/// The title band's alpha.
+pub const BAND_ALPHA: u8 = 250;
+/// The border ring's ink: a crisp, fully-opaque hairline.
+pub const RING_RGB: [u8; 3] = [176, 180, 192];
+/// The border ring's alpha.
+pub const RING_ALPHA: u8 = 255;
+/// The close affordance's ink: a warm capsule (the farewell grip).
+pub const CLOSE_RGB: [u8; 3] = [226, 88, 76];
+/// The close affordance's alpha.
+pub const CLOSE_ALPHA: u8 = 255;
+/// The close glyph's ink (the × the capsule carries).
+pub const GLYPH_RGB: [u8; 3] = [255, 255, 255];
+/// The close glyph's alpha.
+pub const GLYPH_ALPHA: u8 = 255;
+/// The close glyph's stroke half-width (logical px, scaled per
+/// output).
+const GLYPH_STROKE: u32 = 2;
+
+/// The chrome raster's shape key: the frame's size, the band split
+/// (the applied insets), and the close affordance's scaled geometry —
+/// the scale's whole effect on the ink (two outputs whose insets
+/// coincide carry distinct keys whenever the button's metrics do).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ChromeShape {
+    /// The frame's width.
+    pub w: u32,
+    /// The frame's height.
+    pub h: u32,
+    /// The title band's height (the top inset).
+    pub top: u32,
+    /// The left border's width.
+    pub left: u32,
+    /// The right border's width.
+    pub right: u32,
+    /// The bottom border's width.
+    pub bottom: u32,
+    /// The close affordance's scaled size.
+    pub close: u32,
+    /// The close affordance's scaled margin.
+    pub margin: u32,
+}
+
+/// One cached chrome raster: the ink, its validated geometry, and
+/// the buffer-view identity (unique per raster — never a client
+/// buffer's, the dock's 0, or a ghost's small counter).
+#[derive(Debug)]
+pub struct ChromeRaster {
+    /// The raster's identity (the renderer's cache key).
+    pub key: u64,
+    /// The ink: ARGB8888 premultiplied, tightly packed (`w * 4`
+    /// bytes per row), frame-sized with a transparent content hole
+    /// (the client's own layer composites above the middle).
+    pub ink: Vec<u8>,
+    /// The ink's validated geometry (the renderer's view contract).
+    pub geometry: BufferGeometry,
+}
+
+/// The SSD chrome pass (Phase 52): the drawn band around every
+/// server-decorated window — the title bar, the border ring, and the
+/// close affordance whose release asks the client to close
+/// (`toplevel.close`, the frozen event's first sender). CPU ink on
+/// the dock's own model (no framebuffer, the honest `NoFb` demotion;
+/// a visible band pins the frame to the composite arm), cached per
+/// frame *shape* (the ink is stateless — geometry is its only input,
+/// so same-shaped windows share one raster; a resize re-paints).
+#[derive(Debug, Default)]
+pub struct ChromePass {
+    /// The raster cache, one per distinct shape.
+    rasters: std::collections::HashMap<ChromeShape, ChromeRaster>,
+    /// The raster counter (identities mint `KEY_BASE + n`).
+    next: u64,
+}
+
+/// The chrome identities' base — far above the dock's 0, the ghost
+/// counter, and every client buffer's identity (the shm family mints
+/// from a small atomic; a serving desktop never reaches a trillion
+/// rasters).
+const CHROME_KEY_BASE: u64 = 1 << 48;
+
+impl ChromePass {
+    /// The pass's prepare (the mutable half): paint every raster the
+    /// next grade walk will ask for — one per distinct chrome shape
+    /// among the *serving* windows (mapped, routed with a buffer, not
+    /// hidden, and [`chrome_geometry`]'s role truth). The grade walk
+    /// then reads immutably; the two never diverge because both ask
+    /// the same helper under the same scale (the primary's — the
+    /// policy's own doctrine: every proposal's insets, and therefore
+    /// every band, derive from it).
+    pub fn prepare(
+        &mut self,
+        snapshot: &ldp_compositor::snapshot::FrameSnapshot,
+        scene: &crate::scene::Scene,
+        toplevels: &ToplevelHost,
+        scale: ldp_core::scale::ScaleFactor,
+    ) {
+        let mut wanted: Vec<ChromeShape> = Vec::new();
+        for id in snapshot.render_order() {
+            let Some(node) = snapshot.node(*id) else {
+                continue;
+            };
+            if !node.mapped
+                || scene.hidden.contains(id)
+                || !scene.routes.get(id).is_some_and(|r| r.buffer.is_some())
+            {
+                continue;
+            }
+            if let Some((frame, insets)) = chrome_geometry(toplevels, *id, node.bounds) {
+                let shape = ChromeShape::of(frame, insets, scale);
+                if !wanted.contains(&shape) {
+                    wanted.push(shape);
+                }
+            }
+        }
+        for shape in wanted {
+            if !self.rasters.contains_key(&shape) {
+                let ink = paint_chrome(
+                    shape.w,
+                    shape.h,
+                    ldp_shell::ssd::Insets {
+                        left: shape.left,
+                        top: shape.top,
+                        right: shape.right,
+                        bottom: shape.bottom,
+                    },
+                    shape,
+                );
+                let geometry = dock_geometry(shape.w, shape.h);
+                let key = CHROME_KEY_BASE + self.next;
+                self.next += 1;
+                self.rasters
+                    .insert(shape, ChromeRaster { key, ink, geometry });
+            }
+        }
+    }
+
+    /// The prepared raster for one shape (the grade walk's read
+    /// half). `None` only if the prepare and the walk disagree —
+    /// impossible by construction (both ask [`chrome_geometry`]),
+    /// kept honest by skipping the chrome that frame.
+    #[must_use]
+    pub fn raster(&self, shape: ChromeShape) -> Option<&ChromeRaster> {
+        self.rasters.get(&shape)
+    }
+}
+
+impl ChromeShape {
+    /// The shape of one serving chrome: its frame, the applied band
+    /// split, and the scaled close-affordance metrics.
+    #[must_use]
+    pub fn of(
+        frame: Rect,
+        insets: ldp_shell::ssd::Insets,
+        scale: ldp_core::scale::ScaleFactor,
+    ) -> ChromeShape {
+        ChromeShape {
+            w: frame.w,
+            h: frame.h,
+            top: insets.top,
+            left: insets.left,
+            right: insets.right,
+            bottom: insets.bottom,
+            close: scale.scale_px_up(ldp_shell::ssd::CLOSE_SIZE),
+            margin: scale.scale_px_up(ldp_shell::ssd::CLOSE_MARGIN),
+        }
+    }
+}
+
+/// The one geometry truth of the drawn chrome (Phase 52): the frame
+/// rect and the applied insets of a serving window's band — `None`
+/// when the window draws no chrome: not a toplevel (a plain surface,
+/// a popup, a dialog), client-decorated (CSD draws its own chrome —
+/// the system grid only reserves the hit zone *inside* the client's
+/// buffer), never-yet-applied (the two-phase commit has not accepted
+/// the insets — the window has not reserved the band), or applied
+/// zero insets (fullscreen covers everything, the `NONE` metrics).
+/// The render pass (the layer), the damage ledger (the claims), and
+/// the input pump (the ring hit test) all read this one answer.
+pub fn chrome_geometry(
+    toplevels: &ToplevelHost,
+    surface: ldp_compositor::surface::SurfaceId,
+    content: Rect,
+) -> Option<(Rect, ldp_shell::ssd::Insets)> {
+    let entry = toplevels.by_surface(surface)?;
+    if entry.decoration != ldp_shell::ssd::DecorationMode::Server {
+        return None;
+    }
+    let applied = entry.machine.applied()?;
+    Some((applied.insets.frame_around(content), applied.insets))
+}
+
+/// Paint one window's chrome ink (Phase 52 — the SSD pass): the
+/// title band across the frame's top, the border ring down the sides
+/// and under the bottom, and the close affordance (a warm capsule
+/// carrying a white × glyph) at the title band's right end —
+/// ARGB8888 premultiplied, tightly packed, frame-sized, the content
+/// hole transparent. Degenerate frames (thinner than their own band)
+/// saturate per side; the painter never writes outside its bounds.
+fn paint_chrome(
+    frame_w: u32,
+    frame_h: u32,
+    band: ldp_shell::ssd::Insets,
+    shape: ChromeShape,
+) -> Vec<u8> {
+    let band_word = prem_word(BAND_RGB, BAND_ALPHA);
+    let ring_word = prem_word(RING_RGB, RING_ALPHA);
+    let close_word = prem_word(CLOSE_RGB, CLOSE_ALPHA);
+    let glyph_word = prem_word(GLYPH_RGB, GLYPH_ALPHA);
+    let mut words = vec![0u32; frame_w as usize * frame_h as usize];
+    let title_rows = band.top.min(frame_h);
+    let left_cols = band.left.min(frame_w);
+    let right_cols = band.right.min(frame_w);
+    let bottom_rows = band.bottom.min(frame_h);
+    // The title band: full width across the top (the ring's top edge
+    // is the band's own ink).
+    for y in 0..title_rows as usize {
+        for x in 0..frame_w as usize {
+            words[y * frame_w as usize + x] = band_word;
+        }
+    }
+    // The ring: the left/right/bottom borders.
+    for y in title_rows as usize..frame_h as usize {
+        for x in 0..left_cols as usize {
+            words[y * frame_w as usize + x] = ring_word;
+        }
+        for x in (frame_w - right_cols) as usize..frame_w as usize {
+            words[y * frame_w as usize + x] = ring_word;
+        }
+    }
+    for y in (frame_h - bottom_rows) as usize..frame_h as usize {
+        for x in 0..frame_w as usize {
+            words[y * frame_w as usize + x] = ring_word;
+        }
+    }
+    // The close affordance: a capsule at the title band's right end
+    // (frame-relative geometry rebuilt from the shape's own scaled
+    // metrics — the same numbers the hit test reads, never a second
+    // scale source).
+    let size = shape.close;
+    let margin = shape.margin;
+    let bx = frame_w.saturating_sub(margin.saturating_add(size));
+    let by = margin;
+    if size >= 2 && bx + size <= frame_w && by + size <= frame_h {
+        capsule_word(
+            &mut words,
+            frame_w,
+            i64::from(bx),
+            i64::from(by),
+            i64::from(size),
+            i64::from(size),
+            close_word,
+        );
+        // The × glyph: two diagonal strokes through the capsule's
+        // center, the stroke half-width scaling with the button.
+        let cx = i64::from(bx) + i64::from(size) / 2;
+        let cy = i64::from(by) + i64::from(size) / 2;
+        let stroke = (u64::from(GLYPH_STROKE) * u64::from(size)
+            / u64::from(ldp_shell::ssd::CLOSE_SIZE))
+        .max(1) as i64;
+        for y in by..by + size {
+            for x in bx..bx + size {
+                let d1 = i64::from(x) - cx - (i64::from(y) - cy);
+                let d2 = i64::from(x) - cx + i64::from(y) - cy;
+                if d1.abs() <= stroke || d2.abs() <= stroke {
+                    words[y as usize * frame_w as usize + x as usize] = glyph_word;
+                }
+            }
+        }
+    }
+    words_to_bytes(&words)
+}
+
+/// One premultiplied ARGB word from an RGB triple and alpha.
+fn prem_word(rgb: [u8; 3], a: u8) -> u32 {
+    let p = [mul255(rgb[0], a), mul255(rgb[1], a), mul255(rgb[2], a)];
+    u32::from(a) << 24 | u32::from(p[0]) << 16 | u32::from(p[1]) << 8 | u32::from(p[2])
 }
 
 /// Scale a logical axis coordinate into physical pixels
@@ -2062,5 +2354,193 @@ mod tests {
         assert_eq!(v[0], ldp_core::wire::Value::Uint32(c.serial.0));
         assert_eq!(v[2], ldp_core::wire::Value::Uint32(640));
         assert_eq!(v[3], ldp_core::wire::Value::Uint32(480));
+    }
+
+    // -- Phase 52: the SSD chrome pass ---------------------------------
+
+    /// One ink word at (x, y).
+    fn word_at(ink: &[u8], w: u32, x: u32, y: u32) -> u32 {
+        let off = (y * w + x) as usize * 4;
+        u32::from_le_bytes([ink[off], ink[off + 1], ink[off + 2], ink[off + 3]])
+    }
+
+    /// The 1× chrome shape of a 100×50 frame with the Lion band.
+    fn lion_shape(w: u32, h: u32) -> ChromeShape {
+        ChromeShape {
+            w,
+            h,
+            top: 29,
+            left: 1,
+            right: 1,
+            bottom: 1,
+            close: 20,
+            margin: 5,
+        }
+    }
+
+    #[test]
+    fn the_chrome_ink_paints_band_ring_button_and_hole() {
+        let band = ldp_shell::ssd::Insets {
+            left: 1,
+            top: 29,
+            right: 1,
+            bottom: 1,
+        };
+        let ink = paint_chrome(100, 50, band, lion_shape(100, 50));
+        let band_word = prem_word(BAND_RGB, BAND_ALPHA);
+        let ring_word = prem_word(RING_RGB, RING_ALPHA);
+        let close_word = prem_word(CLOSE_RGB, CLOSE_ALPHA);
+        let glyph_word = prem_word(GLYPH_RGB, GLYPH_ALPHA);
+        // The title band: full width across the top.
+        assert_eq!(word_at(&ink, 100, 50, 5), band_word);
+        assert_eq!(word_at(&ink, 100, 0, 28), band_word);
+        // The border ring: the sides and the bottom.
+        assert_eq!(word_at(&ink, 100, 0, 40), ring_word);
+        assert_eq!(word_at(&ink, 100, 99, 40), ring_word);
+        assert_eq!(word_at(&ink, 100, 50, 49), ring_word);
+        // The content hole: transparent (the client's layer above).
+        assert_eq!(word_at(&ink, 100, 50, 40), 0);
+        assert_eq!(word_at(&ink, 100, 30, 30), 0);
+        // The close capsule at the band's right end: a point inside
+        // the circle but off both glyph strokes is capsule ink, the
+        // button's center carries the × glyph.
+        // (100 - 5 - 20 = 75 .. 95, y 5 .. 25; circle r=10 at (85,15).)
+        assert_eq!(word_at(&ink, 100, 78, 15), close_word);
+        assert_eq!(word_at(&ink, 100, 85, 9), close_word);
+        assert_eq!(word_at(&ink, 100, 85, 15), glyph_word);
+        // The ink is tightly packed and frame-sized.
+        assert_eq!(ink.len(), 100 * 50 * 4);
+    }
+
+    #[test]
+    fn the_close_glyph_is_a_cross_not_a_blob() {
+        let band = ldp_shell::ssd::Insets {
+            left: 1,
+            top: 29,
+            right: 1,
+            bottom: 1,
+        };
+        let ink = paint_chrome(100, 50, band, lion_shape(100, 50));
+        let glyph_word = prem_word(GLYPH_RGB, GLYPH_ALPHA);
+        let close_word = prem_word(CLOSE_RGB, CLOSE_ALPHA);
+        // The glyph's arms reach the capsule's diagonals, its
+        // off-diagonal corners stay capsule ink: (77, 7) sits on the
+        // anti-diagonal's far corner — capsule, not glyph.
+        let cx: i64 = 85;
+        let cy: i64 = 15;
+        for (x, y) in [(80, 10), (90, 20), (90, 10), (80, 20)] {
+            let d1 = i64::from(x) - cx - (i64::from(y) - cy);
+            let d2 = i64::from(x) - cx + i64::from(y) - cy;
+            let w = word_at(&ink, 100, x, y);
+            if d1.abs() <= 2 || d2.abs() <= 2 {
+                assert_eq!(w, glyph_word, "glyph arm at ({x},{y})");
+            } else {
+                assert_eq!(w, close_word, "capsule body at ({x},{y})");
+            }
+        }
+    }
+
+    #[test]
+    fn the_chrome_ink_scales_its_affordance() {
+        let band = ldp_shell::ssd::Insets {
+            left: 2,
+            top: 58,
+            right: 2,
+            bottom: 2,
+        };
+        let shape = ChromeShape {
+            w: 200,
+            h: 100,
+            top: 58,
+            left: 2,
+            right: 2,
+            bottom: 2,
+            close: 40,
+            margin: 10,
+        };
+        let ink = paint_chrome(200, 100, band, shape);
+        let close_word = prem_word(CLOSE_RGB, CLOSE_ALPHA);
+        let glyph_word = prem_word(GLYPH_RGB, GLYPH_ALPHA);
+        // 2×: the button is 40×40 at (200-10-40=150, 10); its center
+        // (170, 30) carries the glyph, a point off both strokes (the
+        // circle's top, r=20) stays capsule ink.
+        assert_eq!(word_at(&ink, 200, 170, 15), close_word);
+        assert_eq!(word_at(&ink, 200, 170, 30), glyph_word);
+        // The band and ring ride their own insets.
+        let band_word = prem_word(BAND_RGB, BAND_ALPHA);
+        assert_eq!(word_at(&ink, 200, 100, 20), band_word);
+    }
+
+    #[test]
+    fn degenerate_frames_paint_saturated_bands() {
+        // A frame thinner than its own band: the painter saturates
+        // per side and never writes out of bounds.
+        let band = ldp_shell::ssd::Insets {
+            left: 1,
+            top: 29,
+            right: 1,
+            bottom: 1,
+        };
+        let ink = paint_chrome(
+            4,
+            3,
+            band,
+            ChromeShape {
+                w: 4,
+                h: 3,
+                top: 29,
+                left: 1,
+                right: 1,
+                bottom: 1,
+                close: 20,
+                margin: 5,
+            },
+        );
+        assert_eq!(ink.len(), 4 * 3 * 4);
+        // The degenerate overlap: the saturated band (top=29 over
+        // h=3) covers every row, and the bottom border (b=1) claims
+        // the last one back — the ring paints after the band, its
+        // crisp edge winning the overlap (never outside the frame).
+        let band_word = prem_word(BAND_RGB, BAND_ALPHA);
+        let ring_word = prem_word(RING_RGB, RING_ALPHA);
+        for y in 0..2u32 {
+            for x in 0..4u32 {
+                assert_eq!(word_at(&ink, 4, x, y), band_word);
+            }
+        }
+        for x in 0..4u32 {
+            assert_eq!(word_at(&ink, 4, x, 2), ring_word);
+        }
+    }
+
+    #[test]
+    fn prem_word_is_premultiplied() {
+        assert_eq!(prem_word([255, 255, 255], 255), 0xFFFF_FFFF);
+        // 50% white: 128 premultiplied (round half up).
+        assert_eq!(prem_word([255, 255, 255], 128), 0x8080_8080);
+        // The band's own word (the oracle the pixel tests read).
+        let b = prem_word(BAND_RGB, BAND_ALPHA);
+        let r = (u32::from(BAND_RGB[0]) * 250 + 127) / 255;
+        assert_eq!((b >> 16) & 0xFF, r);
+    }
+
+    #[test]
+    fn chrome_shapes_key_their_whole_scale_effect() {
+        let insets = ldp_shell::ssd::Insets {
+            left: 1,
+            top: 29,
+            right: 1,
+            bottom: 1,
+        };
+        let frame = Rect::new(0, 0, 100, 50);
+        let sf = |v: f32| ldp_core::scale::ScaleFactor::from_f32_lossy(v).unwrap();
+        let one = ChromeShape::of(frame, insets, sf(1.0));
+        let two = ChromeShape::of(frame, insets, sf(2.0));
+        assert_eq!(one, lion_shape(100, 50));
+        assert_ne!(one, two);
+        assert_eq!(two.close, 40);
+        assert_eq!(two.margin, 10);
+        // Identical inputs share the key (the cache's whole point).
+        assert_eq!(ChromeShape::of(frame, insets, sf(1.0)), one);
     }
 }

@@ -266,11 +266,17 @@ v0.17.0 the toplevel states arm is served whole (the frozen
 commit with the restore point; the visibility verbs with App-Nap
 frame parking and byte-exact restoration; `workspace_count` at bind,
 `set_workspace` with the clamped report — zero wire surface moved).
-Still
-open: the states arm's last follow-on (the server-initiated `close`
-event — Phase 52's line, riding the SSD chrome pass and its drawn
-title-bar close button, the honest trigger the frozen event awaits);
-v0.19.0 closed two of the three follow-ons (the `activated` bit —
+v0.20.0
+closed the states arm's last follow-on whole — the SSD chrome pass
+and the server-initiated `close` event it carries: the drawn title
+bar, border ring, and close affordance painted as compositor-owned
+ink around every server-decorated window (CPU ink on the dock's
+model, the claims ledger, the chrome-aware maximize — the DWM
+caption and the WindowServer title bar finally answered with drawn
+chrome of our own, and the frozen `toplevel.close` given its first
+sender: press arms, release fires, drag-away cancels — the caption
+doctrine, zero wire movement). v0.19.0 closed two of the three
+follow-ons (the `activated` bit —
 the frozen flag riding real proposals through every focus
 transition, the grace-parking state proposal never punishing a
 drag-draining client; the operator-side space switching —

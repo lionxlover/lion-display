@@ -1433,6 +1433,7 @@ fn build_world(
         renderer_report: decision.report,
         effects: tier,
         shell,
+        chrome: crate::shell::ChromePass::default(),
         resolution,
         synth,
         multi_output,
