@@ -1,10 +1,69 @@
-# LDP Delivery Roadmap — 57 Phases
+# LDP Delivery Roadmap — 58 Phases
 
 Each phase lands as one reviewable, buildable, tested chunk (delivered to the
 user as `phase<N>.zip`; the final phase also produces the all-in-one bundle).
 Exit criteria are hard: a phase is not complete until every box is green.
 
 Legend: **EC** = exit criteria.
+
+---
+
+## Phase 58 — The caption's double-click grammar *(delivered — see CHANGELOG 0.26.0)*
+
+The gap-filling program's eighth release (the ledger's next named
+line, one gap at a time): **the caption's double-click grammar** —
+the drawn chrome's sixth follow-on, the ledger's own first named
+remainder. The states arm gave the windows their verbs (Phase 49),
+the operator's hand gave them the drag (Phase 50), the caption
+became a grip (Phase 53) — but the one gesture every desktop user
+reaches for first was missing: the double-click on the title bar
+that maximizes, and the one that restores. Windows sends
+`WM_NCLBUTTONDBLCLK`; WindowServer zooms the sheet. Zero wire
+movement: the pair only *drives* the same `maximize`/`unmaximize`
+verbs the frozen surface already serves.
+
+* **The pair's gate** (the one mechanism): a press on the band —
+  outside the close affordance — either pairs with the pending
+  caption click (the same window, the second press inside the
+  500 ms double-click window and the 8 px double-click radius) or
+  becomes it (the clock restarts — one slot, the whole desktop).
+  The qualifying second press fires the toggle *on the press* (the
+  `WM_NCLBUTTONDBLCLK` doctrine) and still arms its grip (the
+  press's own doctrine — consumed, focusing — holds on top of the
+  toggle, the pair's release consumed like every band button).
+* **The verb's own driver**: `caption_toggle_maximize` in the
+  compositor's input pump — the states arm's machinery answering
+  the pair (the `wanted` truth's own word, the restore point
+  captured on the engagement, the proposal under the live policy,
+  the visibility truth synced, the configure riding the outbox —
+  the wake contract's own vehicle, the client's ack+commit
+  realizing it, the same two-phase commit the client's own verbs
+  answer). A fullscreen window never reaches the door (its frame
+  is the content's); a dead window receives nothing.
+* **The territories never touched**: the close affordance never
+  pairs (its grammar is the arm-fire ask) and a close press voids
+  the pending caption click; a press that converts into a drag
+  voids the pair (click-click, never drag-click — and a held
+  double-click rides the Phase 53 demotion, the Windows 11
+  doctrine inherited free); the death sweeps take the pending
+  click with the window; plain and CSD windows never toggle (no
+  band, no pair — zero drift).
+* **EC**: 8 `caption_dbl_session` real-socket tests (the maximize
+  arm — the pair firing on the second press, the fill 1918 x 966
+  proposed and realized at the usable origin with the pixel
+  oracle; the restore arm — the client's own verb engaging, the
+  pair releasing, the restore point returned; the time gate — the
+  slow second press never pairing, the clock restarting; the
+  radius gate — the far second press never pairing, the slot
+  re-recording; the close territory — the affordance's own clicks
+  firing their asks, the pending void; the drag void — the
+  conversion voiding the pair; the plain/CSD controls — zero
+  drift; the death sweep — the dead band never pairing) + every
+  prior suite green (2,327 → 2,335); the freeze gates untouched
+  (zero wire surface moved, the seventh consecutive release).
+* **The honest remainders** (named, not hidden): the window-menu
+  family, and the face's own growth (the Latin accents and beyond
+  — data-only, the rasterizer never changes).
 
 ---
 
@@ -66,9 +125,9 @@ machinery; this phase teaches it to carry the chrome it drew.
   green (2,320 → 2,327); the freeze gates untouched (zero wire
   surface moved, the sixth consecutive release).
 * **The honest remainders** (named, not hidden): the caption's
-  double-click grammar, the window-menu family, and the face's own
-  growth (the Latin accents and beyond — data-only, the rasterizer
-  never changes).
+  double-click grammar *(filled by Phase 58)*, the window-menu
+  family, and the face's own growth (the Latin accents and beyond —
+  data-only, the rasterizer never changes).
 
 ---
 

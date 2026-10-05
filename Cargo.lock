@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "clip-client"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-clipboard",
  "ldp-core",
@@ -28,7 +28,7 @@ checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
 name = "hello-ldp"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-tools",
@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-accessibility"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -56,7 +56,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-client"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -66,7 +66,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-clipboard"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-color"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-renderer",
@@ -83,18 +83,18 @@ dependencies = [
 
 [[package]]
 name = "ldp-compositor"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
 ]
 
 [[package]]
 name = "ldp-core"
-version = "0.25.0"
+version = "0.26.0"
 
 [[package]]
 name = "ldp-display"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "libc",
@@ -102,11 +102,11 @@ dependencies = [
 
 [[package]]
 name = "ldp-font"
-version = "0.25.0"
+version = "0.26.0"
 
 [[package]]
 name = "ldp-fuzz"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -119,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-gpu"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-renderer",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-hdr"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-color",
  "ldp-core",
@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-input"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "libc",
@@ -144,7 +144,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-integration"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-client",
  "ldp-core",
@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-planes"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-display",
@@ -165,11 +165,11 @@ dependencies = [
 
 [[package]]
 name = "ldp-png"
-version = "0.25.0"
+version = "0.26.0"
 
 [[package]]
 name = "ldp-power"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-compositor",
  "ldp-core",
@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-protocol"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldpc",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-remote"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-client",
  "ldp-core",
@@ -198,14 +198,14 @@ dependencies = [
 
 [[package]]
 name = "ldp-renderer"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
 ]
 
 [[package]]
 name = "ldp-seat"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-input",
@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-security"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-server"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-session"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-power",
@@ -240,7 +240,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-shell"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-font",
@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-test"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-clipboard",
  "ldp-color",
@@ -264,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-tools"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-client",
  "ldp-compositor",
@@ -283,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-transport"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-vrr"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-compositor",
  "ldp-core",
@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-wayland-bridge"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "ldp-x11-bridge"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-protocol",
@@ -320,7 +320,7 @@ dependencies = [
 
 [[package]]
 name = "ldpc"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "serde",
  "toml",
@@ -334,7 +334,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "lion-bridge"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-client",
  "ldp-core",
@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "lion-compositor"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-client",
  "ldp-clipboard",
@@ -375,7 +375,7 @@ dependencies = [
 
 [[package]]
 name = "pointer-paint"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-core",
  "ldp-input",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "showcase"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "ldp-compositor",
  "ldp-core",

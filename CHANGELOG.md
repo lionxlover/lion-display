@@ -1,5 +1,89 @@
 # Changelog
 
+## [0.26.0] — 2026-10-05 — The caption's double-click grammar
+
+The gap-filling program's eighth release (one gap per version, the
+ledger's own next line): **the caption's double-click grammar** —
+the drawn chrome's sixth follow-on, the ledger's own first named
+remainder. The states arm gave the windows their verbs (0.17.0),
+the operator's hand gave them the drag (0.18.0), the caption became
+a grip (0.21.0) — but the one gesture every desktop user reaches
+for first was still missing: the double-click on the title bar that
+maximizes, and the one that restores. Windows sends
+`WM_NCLBUTTONDBLCLK`; WindowServer zooms the sheet; every
+compositor a user has ever touched answers the pair. Zero wire
+movement: the pair only *drives* the same `maximize`/`unmaximize`
+verbs the frozen surface already serves — the caption is the third
+door into the states arm's one room.
+
+* **The pair's gate** (the one mechanism): a press on the band —
+  outside the close affordance — either *pairs* with the pending
+  caption click (the same window, the second press inside the
+  500 ms double-click window and the 8 px double-click radius) or
+  *becomes* it (the clock restarts — one slot, the whole desktop,
+  the way every desktop's double-click timer resets on any click).
+  The qualifying second press fires the toggle *on the press* (the
+  `WM_NCLBUTTONDBLCLK` doctrine, never the release) and still arms
+  its grip: the press's own doctrine (consumed, focusing) holds on
+  top of the toggle, exactly the way a second press rides the
+  first's activation.
+* **The verb's own driver**: `caption_toggle_maximize` — the
+  states arm's machinery answering the pair: `machine.maximize()`
+  on a floating window, `machine.unmaximize()` on a maximized one
+  (the `wanted` truth's own word), the restore point captured on
+  the engagement (the same capture the verb's driver takes), the
+  proposal minted under the live policy, the visibility truth
+  synced, the configure riding the outbox through the wake
+  contract's own vehicle — the client's ack+commit realizes it,
+  the same two-phase commit the client's own verbs answer (never
+  tearing). A fullscreen window never reaches the door (its frame
+  is the content's — no band to press); a dead window receives
+  nothing (the sweeps' own honesty).
+* **The two gates, measured honestly**: the time gate reads the
+  device's injected clock (the same domain the frame loop and the
+  input→photon budget read); the radius gate reads the pointer's
+  position at the press — the pair is one *gesture* of one hand,
+  never two clicks far apart on a long title bar. A slow second
+  press is two clicks (the Phase 52 band behavior the whole
+  story); a far second press is two gestures (the slot re-records
+  at the new point).
+* **The territories never touched**: the close affordance never
+  pairs (its grammar is the arm-fire close ask — each click fires
+  its own ask) and a close press *voids* the pending caption click
+  (a click that targets the button never targets the caption); a
+  press that converts into a drag voids the pair (the grammar is
+  click-click, never drag-click — the hand moved the window, the
+  next click is a fresh first click); the death sweeps take the
+  pending click with the window (a dead band never pairs); plain
+  and client-decorated windows never toggle (no band, no pair —
+  the presses route exactly as they always have, zero drift).
+* **The held double-click** (the Windows 11 doctrine, inherited
+  free): a pair whose second press the hand then *moves* rides the
+  Phase 53 demotion — the freshly maximized window releases its
+  states and restores its floating size under the pointer's
+  proportional grip, exactly the way every desktop's
+  double-click-then-drag serves. Nothing new to build: the two
+  doctrines compose.
+
+2,327 → 2,335 tests (8 `caption_dbl_session` real-socket tests —
+the maximize arm (the pair firing on the second press, the fill
+1918 x 966 proposed and realized at the usable origin, the presses
+never routing, the pixel oracle pinning the band and the content),
+the restore arm (the client's own verb engaging the geometry, the
+pair releasing it, the restore point returned), the time gate (a
+slow second press never pairing, the clock restarting — the next
+quick press pairing with the *slow* press's own record), the
+radius gate (a far second press never pairing, the slot
+re-recording at the new point), the close territory (the
+affordance's own clicks never toggling, the pending caption click
+voided by a close press), the drag void (a conversion voiding the
+pair, the clock restarting from the drag's end), the plain/CSD
+controls (the presses routing exactly as before, no toggle, no
+configure beyond the activation), and the death sweep (the
+destroyed window's band never pairing, the world healthy). Every
+prior suite green; the freeze gates untouched for the seventh
+consecutive release (zero wire surface moved).
+
 ## [0.25.0] — 2026-10-03 — The chrome ghost
 
 The gap-filling program's seventh release (one gap per version, the

@@ -1,3 +1,28 @@
+lion-display (0.26.0) unstable; urgency=medium
+
+  * Phase 58 — the caption's double-click grammar: the drawn chrome's
+    sixth follow-on, the ledger's own first named remainder. Two
+    presses on the drawn band inside the 500 ms double-click window
+    and the 8 px double-click radius toggle the geometry verb on the
+    second press (the WM_NCLBUTTONDBLCLK doctrine) — a floating
+    window maximizes, a maximized one restores.
+  * The pair rides the states arm's own machinery (caption_toggle_
+    maximize in the input pump): the wanted truth's own word, the
+    restore point captured on the engagement, the proposal under
+    the live policy, the configure riding the outbox — the client's
+    ack+commit realizes it, the same two-phase commit the client's
+    own verbs answer. Zero wire surface moved.
+  * The territories never touched: the close affordance never pairs
+    (its grammar is the arm-fire ask; a close press voids the pending
+    caption click), a press that converts into a drag voids the pair
+    (a held double-click rides the Phase 53 demotion — the Windows 11
+    doctrine inherited free), the death sweeps take the pending click,
+    and plain/CSD windows never toggle (zero drift).
+  * 8 caption_dbl_session real-socket tests; 2,327 -> 2,335 total;
+    zero wire surface moved (the freeze gates untouched).
+
+ -- Z User <z@container>  Mon, 05 Oct 2026 10:00:00 +0000
+
 lion-display (0.25.0) unstable; urgency=medium
 
   * Phase 57 — the chrome ghost: the drawn chrome's fifth follow-on.

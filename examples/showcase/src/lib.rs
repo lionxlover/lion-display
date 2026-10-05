@@ -467,7 +467,7 @@ fn render_overlays(buf: &mut [u8], frame: u32) {
             402,
             title_y(frame) + 108,
             5,
-            "v0.25.0",
+            "v0.26.0",
             [230, 236, 255],
         );
     }

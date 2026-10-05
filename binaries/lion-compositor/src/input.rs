@@ -51,6 +51,23 @@
 //! configures, the release consumed like every band button. The
 //! client's `start_move` door stands — the caption is the second
 //! door into the same room.
+//!
+//! Phase 58 — the caption's double-click grammar: two presses on the
+//! same window's band, inside the double-click window and the
+//! double-click radius, toggle the geometry verb — a floating window
+//! maximizes, a maximized one restores. The pair fires on the second
+//! *press* (the `WM_NCLBUTTONDBLCLK` doctrine every desktop serves),
+//! rides the states arm's own machinery (the machine's `maximize`/
+//! `unmaximize` verbs, the policy's own proposal — the same two-phase
+//! commit the client's own verbs answer, zero wire movement), and the
+//! close affordance never pairs (its grammar is the arm-fire close
+//! ask — a click that left the button never happened, and it never
+//! becomes a toggle either). A press that converts into a drag voids
+//! the pending pair (the hand moved the window; the next click is a
+//! fresh first click), and the second press still arms its grip — a
+//! double-click held into a drag demotes the freshly maximized window
+//! through the Phase 53 doctrine, exactly the way every desktop's
+//! double-click-then-drag serves.
 
 #![forbid(unsafe_code)]
 
@@ -180,6 +197,22 @@ impl KeymapBundle {
     }
 }
 
+/// The double-click window (Phase 58 — the caption's double-click
+/// grammar): two presses on the same band within this span pair into
+/// the geometry toggle. 500 ms — the X11 double-click time's classic
+/// default, the span every desktop ships and every hand already
+/// knows. A slower second press is two clicks (the press arms its
+/// grip as Phase 52 served it, nothing more).
+const CAPTION_DBL_MS: u64 = 500;
+
+/// The double-click radius (Phase 58): the second press must land
+/// within this distance of the first (physical px, each axis) — the
+/// pair is one *gesture* of one hand, never two clicks far apart on
+/// a long title bar. 8 px — the classic pointer-precision allowance,
+/// wide enough for an honest hand, tight enough that a deliberate
+/// click at the other end of the caption never pairs.
+const CAPTION_DBL_RADIUS: f32 = 8.0;
+
 /// One chrome-band hit (Phase 52 — the drawn chrome): the window
 /// whose band ring the pointer claims, the wire address a close ask
 /// would ride, and whether the claim lands on the drawn close
@@ -198,8 +231,9 @@ struct ChromeHit {
 
 /// The chrome arms' resolved state (Phase 52): whether the batch
 /// pressed, the band hit the buttons claim, whether the grip's
-/// release was consumed, and the close ask a qualifying release
-/// fired.
+/// release was consumed, the close ask a qualifying release fired,
+/// and the double-click pair's toggle ask (Phase 58) a qualifying
+/// second press fired.
 #[derive(Clone, Copy, Debug)]
 struct ChromeArms {
     /// Whether the batch carried a button press.
@@ -211,6 +245,9 @@ struct ChromeArms {
     consumed_release: bool,
     /// The close ask (client, object) a qualifying release fired.
     close_ask: Option<(u32, u32)>,
+    /// The geometry toggle (client, object, surface) a qualifying
+    /// double-click press fired (Phase 58 — the caption's grammar).
+    toggle_ask: Option<(u32, u32, SurfaceId)>,
 }
 
 /// A held chrome press (Phase 52): the arm-fire model the caption
@@ -239,6 +276,31 @@ struct ChromeGrip {
     close: bool,
 }
 
+/// The last caption click (Phase 58 — the double-click grammar):
+/// the first press of a potential *pair*, remembered with its
+/// position and its timestamp so the second press can answer the two
+/// gates (the window, the radius) — one slot, the whole desktop (a
+/// click on another window's band resets the clock, the way every
+/// desktop's double-click timer resets on any click). The close
+/// territory never records (its grammar is the arm-fire close ask),
+/// a press that converts into a drag voids it, and the death sweeps
+/// take it with the window it named.
+#[derive(Clone, Copy, Debug)]
+struct CaptionClick {
+    /// The window whose band was pressed.
+    surface: SurfaceId,
+    /// The owning client (the pair's match).
+    client: u32,
+    /// The `ldp.shell.toplevel` object (the pair's match).
+    object: u32,
+    /// The press's pointer position (the radius gate's anchor).
+    x: f32,
+    /// The press's pointer position (the radius gate's anchor).
+    y: f32,
+    /// The press's arrival (the window gate's anchor).
+    at: Mono,
+}
+
 /// The per-seat input state: the router, the bindings, the focus,
 /// the devices, and the scripted feed.
 pub struct InputState {
@@ -251,6 +313,9 @@ pub struct InputState {
     /// The held chrome press (Phase 52 — the drawn band's grip; the
     /// close affordance's arm-fire state).
     chrome_grip: Option<ChromeGrip>,
+    /// The pending caption click (Phase 58 — the double-click pair's
+    /// first press, waiting for its second).
+    caption_click: Option<CaptionClick>,
     /// The keymap (None only when even the memfd failed).
     keymap: Option<KeymapBundle>,
     /// The real devices (empty when off, headless, or no /dev/input).
@@ -289,6 +354,7 @@ impl InputState {
             bindings: HashMap::new(),
             keyboard_focus: None,
             chrome_grip: None,
+            caption_click: None,
             keymap: Some(KeymapBundle { blob }),
             devices: Vec::new(),
             scripted: VecDeque::new(),
@@ -667,16 +733,24 @@ impl World {
     /// drawn chrome's death sweep): a destroyed window's band holds
     /// no press, and its close affordance can never fire again (the
     /// frozen `close` event's target is gone with the route).
+    /// Phase 58 — the sweep also takes the pending caption click: a
+    /// dead window's band can never pair (the grammar's second press
+    /// would address a ghost).
     pub fn end_chrome_grip_of_surface(&mut self, surface: SurfaceId) {
         if self.input.chrome_grip.is_some_and(|g| g.surface == surface) {
             self.input.chrome_grip = None;
+        }
+        if self.input.caption_click.is_some_and(|c| c.surface == surface) {
+            self.input.caption_click = None;
         }
     }
 
     /// End any chrome grip the dying *toplevel object* held (Phase
     /// 52): the object's death retires its role — the surface may
     /// live on roleless, but the close affordance's ask addressed
-    /// this object, and a dead object receives nothing.
+    /// this object, and a dead object receives nothing. Phase 58 —
+    /// the pending caption click dies with the object for the same
+    /// reason (the pair's toggle would propose to a dead object).
     pub fn end_chrome_grip_of_object(&mut self, client: u32, object: u32) {
         if self
             .input
@@ -685,16 +759,108 @@ impl World {
         {
             self.input.chrome_grip = None;
         }
+        if self
+            .input
+            .caption_click
+            .is_some_and(|c| c.client == client && c.object == object)
+        {
+            self.input.caption_click = None;
+        }
     }
 
     /// End any chrome grip the dying *client* held (Phase 52): the
     /// session's teardown takes its windows and their bands; the
     /// grip's close ask would park in an outbox queue that dies with
     /// the session anyway — the sweep keeps the state honest.
+    /// Phase 58 — the pending caption click goes with it (the pair's
+    /// window left with the session).
     pub fn end_chrome_grips_of_client(&mut self, client: u32) {
         if self.input.chrome_grip.is_some_and(|g| g.client == client) {
             self.input.chrome_grip = None;
         }
+        if self.input.caption_click.is_some_and(|c| c.client == client) {
+            self.input.caption_click = None;
+        }
+    }
+
+    /// Phase 58 — the caption's double-click grammar, the verb's own
+    /// driver: the qualifying pair lands on the states arm's
+    /// machinery — `machine.maximize()` on a floating window,
+    /// `machine.unmaximize()` on a maximized one (the `wanted`
+    /// truth's own word, the same read the verbs and the drags take)
+    /// — then proposes under the live policy, exactly the way the
+    /// dispatcher's `drive_toplevel_state` serves the client's own
+    /// verbs: the restore point captured on the engagement (the
+    /// floating size at this moment, the demotion's future answer),
+    /// the drag-held position voided (the verb's regime supersedes
+    /// the hand's), the visibility truth synced. Zero wire movement
+    /// — the pair only *drives* the same verbs the frozen surface
+    /// already serves; a fullscreen window never reaches this door
+    /// (its frame is the content's — no band to press). Returns the
+    /// proposal for the outbox (the two-phase commit's first half;
+    /// the client's ack+commit realizes it), or `None` when the
+    /// window died between the press and the delivery (the sweeps'
+    /// own honesty — a dead object receives nothing).
+    pub(crate) fn caption_toggle_maximize(
+        &mut self,
+        client: u32,
+        object: u32,
+        surface: SurfaceId,
+    ) -> Option<ldp_shell::toplevel::Configure> {
+        // The belt-and-braces eligibility (the pair's gates proved the
+        // band live at the press; the delivery proves the window
+        // still is): a grip needs a mapped, visible window.
+        let mapped = self
+            .scene
+            .tree
+            .get(surface)
+            .is_some_and(|s| s.state().is_mapped());
+        if !mapped || self.scene.hidden.contains(&surface) {
+            return None;
+        }
+        let policy = self.toplevel_policy(surface, None);
+        let un = self
+            .toplevels
+            .entry(client, object)?
+            .machine
+            .wanted()
+            .maximized();
+        // The engagement's restore point (the same capture the verbs'
+        // driver takes): the floating size at this moment, never
+        // over an existing one (a re-engagement keeps the first
+        // capture — the window's own truth, not the maximized size).
+        if !un {
+            let floating_rect = self.scene.tree.get(surface).map(Surface::last_bounds);
+            if let Some(entry) = self.toplevels.entry_mut(client, object) {
+                if !entry.machine.wanted().maximized()
+                    && !entry.machine.wanted().fullscreen()
+                    && entry.restore_size.is_none()
+                {
+                    entry.restore_size = floating_rect.filter(|r| r.w > 0 && r.h > 0).map(|r| {
+                        let lw = crate::shell::unscale_axis(r.w as i32, policy.scale).max(1);
+                        let lh = crate::shell::unscale_axis(r.h as i32, policy.scale).max(1);
+                        (
+                            u32::try_from(lw).unwrap_or(1),
+                            u32::try_from(lh).unwrap_or(1),
+                        )
+                    });
+                }
+            }
+        }
+        // The verb lands on the machine, then the proposal (one
+        // borrow, one narrative — the states arm's own doctrine).
+        let proposal = {
+            let entry = self.toplevels.entry_mut(client, object)?;
+            entry.drag_pos = None;
+            if un {
+                entry.machine.unmaximize();
+            } else {
+                entry.machine.maximize();
+            }
+            entry.machine.propose(&policy)
+        };
+        self.sync_states_visibility(surface);
+        Some(proposal)
     }
 
     /// Clear the `resizing` bit of a retired drag's machine (the
@@ -878,6 +1044,11 @@ impl World {
         if grip.close || self.drags.live().is_some() {
             return;
         }
+        // Phase 58 — the conversion voids the pending pair: the hand
+        // moved the window, the gesture became a drag; the next click
+        // on any caption is a fresh first click (the drag-then-click
+        // sequence never toggles — the grammar is click-click).
+        self.input.caption_click = None;
         if let Some(proposal) = self.mint_pointer_drag(
             grip.client,
             grip.object,
@@ -905,7 +1076,7 @@ impl World {
         // Phase 52 — the drawn chrome's arms (the band's press and
         // the grip's release, resolved before the router ever sees
         // the batch): see `chrome_arms`.
-        let arms = self.chrome_arms(events);
+        let arms = self.chrome_arms(events, now);
         // Click-to-focus: a button press re-targets the keyboard
         // focus at the pointer's hit (the shell's policy — the
         // router only reads what the scene supplies). The band's
@@ -970,6 +1141,23 @@ impl World {
                 ));
             }
         }
+        // Phase 58 — the caption's double-click grammar: the pair's
+        // verb rides the outbox the same way (the wake contract's own
+        // vehicle, the two-phase proposal the client's own verbs
+        // answer — the toggle is the states arm's second door, the
+        // caption the first press's grip was the drag's).
+        if let Some((client, object, surface)) = arms.toggle_ask {
+            if let Some(proposal) = self.caption_toggle_maximize(client, object, surface) {
+                if let Some(client_id) = ClientId::new(client) {
+                    self.outboxes.push(OutboxEntry::event(
+                        client_id,
+                        ObjectId::from_wire(object),
+                        "configure",
+                        crate::shell::toplevel_configure_values(&proposal),
+                    ));
+                }
+            }
+        }
         // Phase 50 — the operator's hand: a live drag rides the
         // pointer's freshest sample (the same position state the
         // routed motion serves — the router's position is the truth
@@ -1009,7 +1197,22 @@ impl World {
     /// else it cancels (the caption drag-away doctrine every desktop
     /// serves — a release of another button routes per its own
     /// truth, the grip stands for its own).
-    fn chrome_arms(&mut self, events: &[InputEvent]) -> ChromeArms {
+    ///
+    /// Phase 58 — the pair's gate: a press on the band *outside* the
+    /// close affordance answers the double-click window against the
+    /// pending caption click — the same window, inside the span and
+    /// the radius — and the qualifying second press *fires* the
+    /// geometry toggle (the state's own arms deliver it; see
+    /// [`Self::caption_toggle_maximize`]). The pair's second press
+    /// still arms its grip (consumed, focusing — the press's own
+    /// doctrine holds on top of the toggle, exactly the way a second
+    /// press rides the first's activation), and a press that does
+    /// not pair becomes the pending click itself (the clock restarts
+    /// — one slot, the whole desktop). The close territory never
+    /// records and never pairs: a close press voids the pending
+    /// click (its grammar is the arm-fire ask, and a click that
+    /// targets the button never targets the caption).
+    fn chrome_arms(&mut self, events: &[InputEvent], now: Mono) -> ChromeArms {
         let pressed = events
             .iter()
             .any(|e| matches!(e, InputEvent::Button { pressed: true, .. }));
@@ -1026,12 +1229,46 @@ impl World {
             hit = self.chrome_hit();
         }
         // The press arms.
+        let mut toggle_ask = None;
         if pressed {
             if let Some(band) = hit {
                 if let Some(InputEvent::Button { button, .. }) = events
                     .iter()
                     .find(|e| matches!(e, InputEvent::Button { pressed: true, .. }))
                 {
+                    // Phase 58 — the pair's gate: the close territory
+                    // aside, a band press either fires the pair (the
+                    // same window, inside the window and the radius)
+                    // or becomes the pending click (the clock's fresh
+                    // start). The gate reads the pointer *at this
+                    // press* (the router's own position — the same
+                    // truth the hit test read).
+                    if band.close {
+                        self.input.caption_click = None;
+                    } else {
+                        let (px, py) = self.input.pointer_position();
+                        let prior = self.input.caption_click.take();
+                        let pairs = prior.is_some_and(|c| {
+                            c.surface == band.surface
+                                && c.client == band.client
+                                && c.object == band.object
+                                && now.ms_since(c.at) <= CAPTION_DBL_MS
+                                && (px - c.x).abs() <= CAPTION_DBL_RADIUS
+                                && (py - c.y).abs() <= CAPTION_DBL_RADIUS
+                        });
+                        if pairs {
+                            toggle_ask = Some((band.client, band.object, band.surface));
+                        } else {
+                            self.input.caption_click = Some(CaptionClick {
+                                surface: band.surface,
+                                client: band.client,
+                                object: band.object,
+                                x: px,
+                                y: py,
+                                at: now,
+                            });
+                        }
+                    }
                     self.input.chrome_grip = Some(ChromeGrip {
                         surface: band.surface,
                         client: band.client,
@@ -1065,6 +1302,7 @@ impl World {
             hit,
             consumed_release,
             close_ask,
+            toggle_ask,
         }
     }
 

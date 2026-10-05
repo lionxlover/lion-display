@@ -8,7 +8,7 @@ members = ["crates/*", "tools/*", "binaries/*", "examples/*", "fuzz", "tests"]
 # slice). The globs pick up future crates automatically as they land.
 
 [workspace.package]
-version = "0.25.0"
+version = "0.26.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT OR Apache-2.0"

@@ -1045,6 +1045,45 @@ you, and moving your window remains `start_move` — the
 interactive-drag request your own title bar serves (§3.14's
 drag vocabulary, the same machinery two doors away).
 
+## 3.21 The caption's double-click grammar: maximize by the title bar
+
+Since v0.26.0 the one gesture every desktop user reaches for first
+works: double-clicking a server-decorated window's title bar toggles
+the geometry verb. Two presses on the band — the same window, the
+second inside the 500 ms double-click window and the 8 px
+double-click radius, outside the close button — and the toggle
+fires *on the second press* (the `WM_NCLBUTTONDBLCLK` doctrine
+Windows serves; never the release). A floating window maximizes; a
+maximized one restores.
+
+```text
+# the operator's narrative — the whole story is server-side:
+#   press, release, press (quick, same spot)  → the verb fires
+#   a floating window                         → maximizes
+#   a maximized window                        → restores
+# your client sees: one configure — the same proposal your own
+#   maximize/unmaximize verb would answer (the states arm's
+#   machinery, the same two-phase commit, ack + commit).
+```
+
+The pair only *drives* the frozen `maximize`/`unmaximize` verbs —
+zero wire surface moved, and the proposal your client collects is
+byte-identical to the one your own request mints (the caption is
+the third door into the states arm's one room). The doctrines your
+client can rely on: the close button never toggles (its clicks fire
+their own close asks — a click that targets the button never
+targets the caption), a slow second press is two clicks (the band
+behavior of §3.15 is the whole story), a far second press is two
+*gestures* (the pair is one gesture of one hand), and a press that
+becomes a drag voids the pair (the grammar is click-click, never
+drag-click — though a *held* double-click still maximizes on the
+second press and then demotes under the drag, the Windows 11
+doctrine, §3.16's machinery riding free). Client-decorated windows
+see none of this either way: your buffer's top is your own title
+bar, your presses route to you, and the verb remains your own
+`maximize` request (§3.13's vocabulary, the same machinery three
+doors away).
+
 ## 3.20 The chrome ghost: the whole window leaves as one
 
 Since v0.25.0 the close fade takes the whole window: when a

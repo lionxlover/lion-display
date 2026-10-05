@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LDP — Lion Display Protocol</title>
-<meta name="description" content="LDP is the display server and compositor for LionOS — a first-principles protocol in safe Rust: deterministic frames, drawn chrome, Liquid glass, capability security, and frozen wire surface.">
+<meta name="description" content="LDP is the display server and compositor for LionOS — a first-principles protocol in safe Rust: deterministic frames, drawn chrome with the caption double-click grammar, Liquid glass, capability security, and frozen wire surface.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="LDP — Lion Display Protocol">
-<meta property="og:description" content="One graphics authority for LionOS. Safe Rust · deterministic frames · drawn chrome · Liquid glass.">
+<meta property="og:description" content="One graphics authority for LionOS. Safe Rust · deterministic frames · drawn chrome · double-click grammar · Liquid glass.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://lionxlover.github.io/lion-display/">
 <meta property="og:image" content="https://lionxlover.github.io/lion-display/media/banner.svg">
@@ -280,10 +280,10 @@
     </div>
 
     <div class="stats rv">
-      <span class="stat"><span class="dot"></span><b>v0.25.0</b>&nbsp;· the chrome ghost</span>
-      <span class="stat"><b>2,327</b>&nbsp;tests · 0 failures</span>
-      <span class="stat"><b>57</b>&nbsp;phases · 15 public releases</span>
-      <span class="stat"><b>0</b>&nbsp;wire drift, 6 straight releases</span>
+      <span class="stat"><span class="dot"></span><b>v0.26.0</b>&nbsp;· the caption's double-click grammar</span>
+      <span class="stat"><b>2,335</b>&nbsp;tests · 0 failures</span>
+      <span class="stat"><b>58</b>&nbsp;phases · 16 public releases</span>
+      <span class="stat"><b>0</b>&nbsp;wire drift, 7 straight releases</span>
     </div>
   </div>
 </header>
@@ -302,7 +302,7 @@
     <div class="fig-grid">
       <figure class="fig rv">
         <img src="media/ui-chrome.svg" alt="A lion-compositor desktop: two server-decorated windows in a cascade, each with the drawn caption band, title glyphs, and close capsule, above the frosted dock — annotated with callouts">
-        <figcaption><b>SSD · Minimal</b><span>The caption band is the move grip: pressing it mints a server-truth move — one machinery with <code>start_move</code> — the window follows the hand at the input pump's cadence with zero configures in flight.</span></figcaption>
+        <figcaption><b>SSD · Minimal</b><span>The caption band is the move grip: pressing it mints a server-truth move — one machinery with <code>start_move</code> — and since v0.26.0 a <b>double-click toggles the geometry verb</b> (a floating window maximizes, a maximized one restores), riding the states arm's own two-phase commit.</span></figcaption>
       </figure>
       <figure class="fig rv">
         <img src="media/ui-liquid.svg" alt="The Liquid band: a window whose frosted caption reads a warm and a cool backdrop beneath it, with the four effects tiers compared at the bottom">
@@ -322,9 +322,9 @@
         <p>Placement answers in frame space: a parked window's caption renders from row 0, the cascade steps captions, and the physical clamp holds the band's edge at fractional scales, pixel-true.</p>
       </div>
       <div class="mini rv">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><circle cx="12" cy="12" r="3.5"/></svg></div>
-        <h3>The chrome ghost</h3>
-        <p>A dying window leaves as one — band, title strip, and content fading together over the same chrome cache the living desktop reads, the Liquid pane frosting through the very settle.</p>
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="12" height="12" rx="2"/><path d="M9 3h11v11" opacity=".4"/><path d="M8 13l4 4M12 13l-4 4"/></svg></div>
+        <h3>The double-click grammar</h3>
+        <p>Two presses on the band — inside the 500&nbsp;ms window and the 8&nbsp;px radius — toggle the verb on the second press, the same two-phase commit the client's own <code>maximize</code> answers. Zero wire movement.</p>
       </div>
     </div>
   </div>
@@ -403,7 +403,7 @@
   <div class="wrap">
     <div class="sec-head rv">
       <div class="sec-kicker">History</div>
-      <h2>Fifteen releases, one gap at a time</h2>
+      <h2>Sixteen releases, one gap at a time</h2>
       <p>The doctrine: one gap per phase, one phase per version — every release passes all nine verify gates before it ships, real sockets included. Scroll the rail.</p>
     </div>
 
@@ -422,7 +422,8 @@
       <div class="rel"><div class="v">0.22.0</div><div class="t">The title glyph</div></div>
       <div class="rel"><div class="v">0.23.0</div><div class="t">The Liquid band</div></div>
       <div class="rel"><div class="v">0.24.0</div><div class="t">The chrome-aware placement</div></div>
-      <div class="rel latest"><div class="v">0.25.0<span class="tag">latest</span></div><div class="t">The chrome ghost</div></div>
+      <div class="rel"><div class="v">0.25.0</div><div class="t">The chrome ghost</div></div>
+      <div class="rel latest"><div class="v">0.26.0<span class="tag">latest</span></div><div class="t">The caption's double-click grammar</div></div>
     </div>
   </div>
 </section>
@@ -447,7 +448,7 @@
       <div class="ln"><span class="cm"># or the headless lab — no GPU, full protocol</span></div>
       <div class="ln"><span class="bin">lion-compositor</span> --mode headless</div>
       <div class="ln"> </div>
-      <div class="ln"><span class="cm"># prove it: 2,327 gates, real sockets, frozen wire</span></div>
+      <div class="ln"><span class="cm"># prove it: 2,335 gates, real sockets, frozen wire</span></div>
       <div class="ln">cargo test --all --all-features</div>
     </div>
     <p class="code-note rv">The verify gate adds fmt · clippy (-D warnings) · rustdoc · spec lint · dependency policy · the ldpc freeze snapshot · version coherence — the same nine gates every release ships under.</p>
@@ -470,7 +471,7 @@
       <a class="doc rv" href="docs/protocol.md"><b>Protocol</b><span>The wire surface and its module vocabulary.</span><span class="file">docs/protocol.md</span></a>
       <a class="doc rv" href="docs/reference/"><b>Reference</b><span>The ldpc-generated per-module reference.</span><span class="file">docs/reference/</span></a>
       <a class="doc rv" href="docs/threat-model.md"><b>Threat model</b><span>The capability lattice, the broker, the audit trail.</span><span class="file">docs/threat-model.md</span></a>
-      <a class="doc rv" href="docs/roadmap.md"><b>Roadmap</b><span>57 phases shipped; the ledger of what's next.</span><span class="file">docs/roadmap.md</span></a>
+      <a class="doc rv" href="docs/roadmap.md"><b>Roadmap</b><span>58 phases shipped; the ledger of what's next.</span><span class="file">docs/roadmap.md</span></a>
       <a class="doc rv" href="docs/comparison.md"><b>Comparisons</b><span>LDP vs. Wayland, X11, DWM, and WindowServer.</span><span class="file">docs/comparison.md</span></a>
       <a class="doc rv" href="docs/benchmarks.md"><b>Benchmarks</b><span>The measured numbers, honestly framed.</span><span class="file">docs/benchmarks.md</span></a>
       <a class="doc rv" href="docs/maturity.md"><b>Maturity</b><span>What is CI-hardened, what is staged — per subsystem.</span><span class="file">docs/maturity.md</span></a>
@@ -487,7 +488,7 @@
     <div class="foot">
       <div class="foot-l">
         <svg viewBox="0 0 128 128" aria-hidden="true"><rect x="2" y="2" width="124" height="124" rx="30" fill="#141A22"/><rect x="2.5" y="2.5" width="123" height="123" rx="29.5" fill="none" stroke="#2A313C"/><rect x="29" y="29" width="70" height="70" rx="12" fill="#1A1F27" stroke="#39414D" stroke-width="1.5"/><path d="M41 29 h46 a12 12 0 0 1 12 12 v11 h-70 v-11 a12 12 0 0 1 12 -12 z" fill="#232A35"/><path d="M29 52 h70" stroke="#2A313C"/><rect x="82" y="35" width="12" height="12" rx="6" fill="#E2654E"/><rect x="50" y="60" width="10" height="30" rx="3" fill="#3385FF"/><rect x="50" y="80" width="28" height="10" rx="3" fill="#3385FF"/></svg>
-        <div class="t"><b>LDP</b><span>Lion Display Protocol · v0.25.0</span></div>
+        <div class="t"><b>LDP</b><span>Lion Display Protocol · v0.26.0</span></div>
       </div>
       <div class="foot-r">
         <a href="https://github.com/lionxlover/lion-display" target="_blank" rel="noopener">GitHub</a>
